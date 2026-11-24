@@ -1,0 +1,4304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Xray Cloud Test Studio — Offline Keyboard-First Test Authoring</title>
+  <style>
+    :root {
+      --bg: #0f141c;
+      --surface: #171e29;
+      --surface-2: #1f2836;
+      --surface-3: #273244;
+      --border: #2f3c52;
+      --border-strong: #465878;
+      --text: #e6edf7;
+      --text-muted: #98a8c2;
+      --text-faint: #6c7c96;
+      --primary: #4ea1ff;
+      --primary-bg: rgba(78, 161, 255, 0.14);
+      --primary-contrast: #071423;
+      --success: #3dd68c;
+      --success-bg: rgba(61, 214, 140, 0.13);
+      --warning: #f5b942;
+      --warning-bg: rgba(245, 185, 66, 0.14);
+      --error: #ff6b7a;
+      --error-bg: rgba(255, 107, 122, 0.14);
+      --label-bg: rgba(167, 139, 250, 0.14);
+      --label-fg: #c4b5fd;
+      --comp-bg: rgba(45, 212, 191, 0.14);
+      --comp-fg: #5eead4;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme="dark"]) {
+        --bg: #f4f7fb;
+        --surface: #ffffff;
+        --surface-2: #eef3fa;
+        --surface-3: #e2e9f4;
+        --border: #d2dce9;
+        --border-strong: #9fb0c8;
+        --text: #141c28;
+        --text-muted: #4b5c75;
+        --text-faint: #7888a0;
+        --primary: #0b69d4;
+        --primary-bg: rgba(11, 105, 212, 0.11);
+        --primary-contrast: #ffffff;
+        --success: #0d8f53;
+        --success-bg: rgba(13, 143, 83, 0.11);
+        --warning: #b36b00;
+        --warning-bg: rgba(179, 107, 0, 0.12);
+        --error: #c92a3d;
+        --error-bg: rgba(201, 42, 61, 0.11);
+        --label-bg: rgba(109, 40, 217, 0.1);
+        --label-fg: #5b21b6;
+        --comp-bg: rgba(13, 148, 136, 0.1);
+        --comp-fg: #0f766e;
+      }
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-2: #eef3fa;
+      --surface-3: #e2e9f4;
+      --border: #d2dce9;
+      --border-strong: #9fb0c8;
+      --text: #141c28;
+      --text-muted: #4b5c75;
+      --text-faint: #7888a0;
+      --primary: #0b69d4;
+      --primary-bg: rgba(11, 105, 212, 0.11);
+      --primary-contrast: #ffffff;
+      --success: #0d8f53;
+      --success-bg: rgba(13, 143, 83, 0.11);
+      --warning: #b36b00;
+      --warning-bg: rgba(179, 107, 0, 0.12);
+      --error: #c92a3d;
+      --error-bg: rgba(201, 42, 61, 0.11);
+      --label-bg: rgba(109, 40, 217, 0.1);
+      --label-fg: #5b21b6;
+      --comp-bg: rgba(13, 148, 136, 0.1);
+      --comp-fg: #0f766e;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.4;
+      overflow: hidden;
+    }
+
+    button, input, select, textarea {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.12s, border-color 0.12s;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--surface-3);
+      border-color: var(--border-strong);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    button.primary {
+      background: var(--primary);
+      color: var(--primary-contrast);
+      border-color: var(--primary);
+      font-weight: 600;
+    }
+
+    button.primary:hover:not(:disabled) {
+      filter: brightness(1.08);
+      background: var(--primary);
+    }
+
+    button.danger {
+      color: var(--error);
+      border-color: rgba(255, 107, 122, 0.4);
+      background: var(--error-bg);
+    }
+
+    input[type="text"], input[type="search"], select, textarea {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 8px;
+      outline: none;
+    }
+
+    input:focus, select:focus, textarea:focus, button:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
+    }
+
+    kbd {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.2;
+      padding: 2px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface-2);
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .mono { font-family: var(--mono); }
+    .muted { color: var(--text-muted); }
+    .faint { color: var(--text-faint); }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Shell */
+    .shell {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Top Header */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand-title {
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.01em;
+    }
+
+    .mode-pill {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      background: var(--primary-bg);
+    }
+
+    .mode-pill.edit {
+      border-color: var(--success);
+      color: var(--success);
+      background: var(--success-bg);
+    }
+
+    .mode-pill.modal {
+      border-color: var(--warning);
+      color: var(--warning);
+      background: var(--warning-bg);
+    }
+
+    .folder-pill {
+      font-size: 12px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .folder-pill.connected {
+      border-color: rgba(61, 214, 140, 0.45);
+      background: var(--success-bg);
+      color: var(--success);
+    }
+
+    .folder-pill.pending {
+      border-color: rgba(245, 185, 66, 0.5);
+      background: var(--warning-bg);
+      color: var(--warning);
+    }
+
+    .folder-pill.saving {
+      border-color: var(--primary);
+      background: var(--primary-bg);
+      color: var(--primary);
+    }
+
+    .folder-pill.error {
+      border-color: rgba(255, 107, 122, 0.5);
+      background: var(--error-bg);
+      color: var(--error);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    /* Body Split */
+    .workspace {
+      display: grid;
+      grid-template-columns: 265px 1fr;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Left Sidebar */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .sidebar-head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .test-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .test-card {
+      width: 100%;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+      padding: 8px 10px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .test-card.active {
+      border-color: var(--primary);
+      background: var(--primary-bg);
+    }
+
+    .test-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .prio-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+    }
+
+    .prio-1 { color: var(--error); background: var(--error-bg); border-color: rgba(255,107,122,0.35); }
+    .prio-2 { color: var(--warning); background: var(--warning-bg); border-color: rgba(245,185,66,0.35); }
+    .prio-3 { color: var(--success); background: var(--success-bg); border-color: rgba(61,214,140,0.35); }
+    .prio-other { color: var(--text-muted); background: var(--surface-3); }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .chip {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      max-width: 100%;
+    }
+
+    .chip.label { background: var(--label-bg); color: var(--label-fg); }
+    .chip.comp { background: var(--comp-bg); color: var(--comp-fg); }
+    .chip.invalid { outline: 1px dashed var(--warning); }
+
+    /* Main Editor Pane */
+    .main-pane {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Per-Test Header Panel */
+    .meta-panel {
+      padding: 10px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .meta-row-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .summary-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 240px;
+    }
+
+    .summary-title {
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 5px;
+      border: 1px solid transparent;
+    }
+
+    .summary-title:hover {
+      border-color: var(--border);
+      background: var(--surface-2);
+    }
+
+    .meta-row-fields {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .field-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      cursor: pointer;
+    }
+
+    .field-pill:hover {
+      border-color: var(--border-strong);
+      background: var(--surface-3);
+    }
+
+    /* Grid Area */
+    .grid-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 12px 14px;
+    }
+
+    .grid-table {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .grid-row {
+      display: grid;
+      align-items: stretch;
+      border-top: 1px solid var(--border);
+    }
+
+    .grid-row.header {
+      border-top: none;
+      background: var(--surface-2);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      font-weight: 600;
+    }
+
+    .grid-row.active-row {
+      background: rgba(78, 161, 255, 0.04);
+    }
+
+    .grid-cell, .grid-col-header, .grid-row-num {
+      padding: 8px 10px;
+      border-left: 1px solid var(--border);
+      min-width: 0;
+      word-break: break-word;
+    }
+
+    .grid-row-num {
+      border-left: none;
+      text-align: center;
+      font-family: var(--mono);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .grid-row.active-row .grid-row-num {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .grid-col-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      color: var(--text-muted);
+    }
+
+    .grid-col-header.active-col {
+      background: var(--primary-bg);
+      color: var(--text);
+    }
+
+    .grid-cell {
+      cursor: pointer;
+      white-space: pre-wrap;
+      min-height: 36px;
+      position: relative;
+    }
+
+    .grid-cell.empty {
+      color: var(--text-faint);
+      font-style: italic;
+    }
+
+    .grid-cell.selected {
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
+      background: var(--primary-bg);
+    }
+
+    .grid-cell.editing {
+      padding: 4px;
+      outline: 2px solid var(--success);
+      outline-offset: -2px;
+      background: var(--success-bg);
+    }
+
+    .grid-cell textarea {
+      width: 100%;
+      min-height: 28px;
+      resize: vertical;
+      border: 1px solid var(--success);
+      background: var(--bg);
+      padding: 4px 6px;
+      line-height: 1.35;
+    }
+
+    /* Footer */
+    .footer {
+      padding: 7px 14px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .hints {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .status-msg {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .status-msg.warn { color: var(--warning); }
+    .status-msg.ok { color: var(--success); }
+    .status-msg.err { color: var(--error); }
+
+    /* Modal Backdrop & Dialogs */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 14, 0.68);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 50;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 780px;
+      max-height: 86vh;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    }
+
+    .modal-card.wide { max-width: 960px; }
+    .modal-card.narrow { max-width: 560px; }
+
+    .modal-head {
+      padding: 12px 16px;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .modal-title {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .modal-body {
+      padding: 14px 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .modal-foot {
+      padding: 10px 16px;
+      background: var(--surface-2);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .list-item {
+      width: 100%;
+      justify-content: space-between;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      text-align: left;
+    }
+
+    .list-item.highlighted {
+      border-color: var(--primary);
+      background: var(--primary-bg);
+    }
+
+    .code-box {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      overflow: auto;
+      max-height: 280px;
+      white-space: pre;
+      margin: 0;
+    }
+
+    .banner {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .banner.ok { border-color: var(--success); background: var(--success-bg); color: var(--success); }
+    .banner.warn { border-color: var(--warning); background: var(--warning-bg); color: var(--warning); }
+    .banner.err { border-color: var(--error); background: var(--error-bg); color: var(--error); }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .section-box {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .map-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .map-table th, .map-table td {
+      border: 1px solid var(--border);
+      padding: 5px 8px;
+      text-align: left;
+    }
+
+    .map-table th {
+      background: var(--surface-2);
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 820px) {
+      .workspace { grid-template-columns: 1fr; }
+      .sidebar { max-height: 170px; border-right: none; border-bottom: 1px solid var(--border); }
+      .two-col { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <script id="central-config" type="application/json">
+{
+  "configVersion": 1,
+  "labels": [
+    "Regression",
+    "Smoke",
+    "UI",
+    "API",
+    "Security",
+    "EdgeCase"
+  ],
+  "components": [
+    "Authentication",
+    "Checkout",
+    "Billing",
+    "Reporting",
+    "Notifications"
+  ],
+  "allowCustomLabels": false,
+  "allowCustomComponents": false,
+  "priorities": [
+    {
+      "value": "1",
+      "label": "1 — High"
+    },
+    {
+      "value": "2",
+      "label": "2 — Medium"
+    },
+    {
+      "value": "3",
+      "label": "3 — Low"
+    }
+  ],
+  "defaultPriority": "2",
+  "defaultTestType": "Manual",
+  "csvDelimiter": ",",
+  "listDelimiter": ";",
+  "includeUtf8Bom": true,
+  "autoWriteCsvToFolder": true,
+  "columnOrder": [
+    "action",
+    "data",
+    "expected"
+  ],
+  "hiddenColumns": [],
+  "headers": {
+    "tcid": "TCID",
+    "summary": "Test Summary",
+    "testType": "Test Type",
+    "priority": "Priority",
+    "labels": "Labels",
+    "components": "Components",
+    "requirement": "Requirement",
+    "action": "Action",
+    "data": "Data",
+    "expected": "Expected Result"
+  }
+}
+  </script>
+
+  <div id="app" class="shell"></div>
+
+  <script>
+    const PRISTINE_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    const STORAGE_CONFIG_KEY = 'xrayStudio.config.v1';
+    const STORAGE_PROJECTS_KEY = 'xrayStudio.projects.v1';
+    const STORAGE_SUITE_KEY = 'xrayStudio.suite.v1';
+    const STORAGE_THEME_KEY = 'xrayStudio.theme.v1';
+
+    /* =========================================================================
+       PURE CORE ENGINE (CSV, XLSX, Validation, Config Serialization)
+       ========================================================================= */
+
+    function deepClone(v) {
+      return JSON.parse(JSON.stringify(v));
+    }
+
+    function escHtml(v) {
+      return String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function normalizeConfig(raw, base) {
+      const cfg = deepClone(base);
+      if (!raw || typeof raw !== 'object') return cfg;
+      if (typeof raw.configVersion === 'number') cfg.configVersion = raw.configVersion;
+      if (Array.isArray(raw.labels)) cfg.labels = dedupeStrings(raw.labels);
+      if (Array.isArray(raw.components)) cfg.components = dedupeStrings(raw.components);
+      if (typeof raw.allowCustomLabels === 'boolean') cfg.allowCustomLabels = raw.allowCustomLabels;
+      if (typeof raw.allowCustomComponents === 'boolean') cfg.allowCustomComponents = raw.allowCustomComponents;
+      if (Array.isArray(raw.priorities) && raw.priorities.length > 0) {
+        cfg.priorities = raw.priorities
+          .filter(p => p && String(p.value || '').trim())
+          .map(p => ({ value: String(p.value).trim(), label: String(p.label || p.value).trim() }));
+      }
+      if (raw.defaultPriority) cfg.defaultPriority = String(raw.defaultPriority).trim();
+      if (raw.defaultTestType) cfg.defaultTestType = String(raw.defaultTestType).trim();
+      if (raw.csvDelimiter === ',' || raw.csvDelimiter === ';') cfg.csvDelimiter = raw.csvDelimiter;
+      if (typeof raw.listDelimiter === 'string' && raw.listDelimiter.length > 0) cfg.listDelimiter = raw.listDelimiter;
+      if (typeof raw.includeUtf8Bom === 'boolean') cfg.includeUtf8Bom = raw.includeUtf8Bom;
+      if (typeof raw.autoWriteCsvToFolder === 'boolean') cfg.autoWriteCsvToFolder = raw.autoWriteCsvToFolder;
+      if (Array.isArray(raw.columnOrder)) {
+        const valid = ['action', 'data', 'expected'];
+        const cleaned = raw.columnOrder.filter(k => valid.includes(k));
+        valid.forEach(k => { if (!cleaned.includes(k)) cleaned.push(k); });
+        cfg.columnOrder = cleaned;
+      }
+      if (Array.isArray(raw.hiddenColumns)) {
+        cfg.hiddenColumns = raw.hiddenColumns.filter(k => ['action', 'data', 'expected'].includes(k));
+      }
+      if (raw.headers && typeof raw.headers === 'object') {
+        cfg.headers = Object.assign({}, cfg.headers, raw.headers);
+      }
+      return cfg;
+    }
+
+    function dedupeStrings(arr) {
+      const seen = new Set();
+      const out = [];
+      (arr || []).forEach(item => {
+        const s = String(item ?? '').trim();
+        if (s && !seen.has(s)) {
+          seen.add(s);
+          out.push(s);
+        }
+      });
+      return out;
+    }
+
+    function getVisibleStepColumns(config) {
+      const hidden = new Set(config.hiddenColumns || []);
+      let cols = (config.columnOrder || ['action', 'data', 'expected']).filter(k => !hidden.has(k));
+      if (cols.length === 0) cols = ['action'];
+      return cols.map(key => ({
+        key,
+        label: (config.headers && config.headers[key]) || key
+      }));
+    }
+
+    function formatMultiValue(items, listDelimiter) {
+      const delim = listDelimiter || ';';
+      const cleaned = dedupeStrings(items || []);
+      return cleaned.join(delim);
+    }
+
+    function csvCell(val, delimiter, forceQuote = false) {
+      const s = String(val ?? '');
+      if (
+        forceQuote ||
+        s.includes(delimiter) ||
+        s.includes('"') ||
+        s.includes('\n') ||
+        s.includes('\r')
+      ) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    }
+
+    function buildXrayCsv(tests, config) {
+      const delim = config.csvDelimiter || ',';
+      const listDelim = config.listDelimiter || ';';
+      const h = config.headers || {};
+      const stepCols = getVisibleStepColumns(config);
+
+      const headerRow = [
+        h.tcid || 'TCID',
+        h.summary || 'Test Summary',
+        h.testType || 'Test Type',
+        h.priority || 'Priority',
+        h.labels || 'Labels',
+        h.components || 'Components',
+        h.requirement || 'Requirement',
+        ...stepCols.map(c => c.label)
+      ];
+
+      const lines = [headerRow.map(cell => csvCell(cell, delim)).join(delim)];
+
+      tests.forEach(t => {
+        const steps = (t.steps && t.steps.length > 0) ? t.steps : [{ action: '', data: '', expected: '' }];
+        const labelsList = dedupeStrings(t.labels || []);
+        const compList = dedupeStrings(t.components || []);
+        const labelsStr = formatMultiValue(labelsList, listDelim);
+        const compStr = formatMultiValue(compList, listDelim);
+
+        steps.forEach((step, idx) => {
+          const isFirst = idx === 0;
+          const rowCells = [
+            csvCell(t.id, delim),
+            csvCell(isFirst ? (t.summary || '') : '', delim),
+            csvCell(isFirst ? (config.defaultTestType || 'Manual') : '', delim),
+            csvCell(isFirst ? (t.priority || '') : '', delim),
+            csvCell(isFirst ? labelsStr : '', delim, isFirst && labelsList.length > 1),
+            csvCell(isFirst ? compStr : '', delim, isFirst && compList.length > 1),
+            csvCell(isFirst ? (t.requirement || '') : '', delim),
+            ...stepCols.map(c => csvCell(step[c.key] || '', delim))
+          ];
+          lines.push(rowCells.join(delim));
+        });
+      });
+
+      return lines.join('\n');
+    }
+
+    function validateSuite(tests, config) {
+      const issues = [];
+      const validPriorities = new Set((config.priorities || []).map(p => String(p.value)));
+      const allowedLabels = new Set(config.labels || []);
+      const allowedComps = new Set(config.components || []);
+
+      tests.forEach((t, idx) => {
+        if (!String(t.summary || '').trim()) {
+          issues.push({ severity: 'error', testIdx: idx, testId: t.id, kind: 'summary', message: `${t.id}: Missing Test Summary (mandatory in Jira)` });
+        }
+        const hasAnyStepText = (t.steps || []).some(s =>
+          String(s.action || '').trim() || String(s.data || '').trim() || String(s.expected || '').trim()
+        );
+        if (!hasAnyStepText) {
+          issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'steps', message: `${t.id}: All test steps are empty` });
+        }
+        if (!validPriorities.has(String(t.priority || ''))) {
+          issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'priority', message: `${t.id}: Priority "${t.priority || '(blank)'}" is outside configured values (${[...validPriorities].join(', ')})` });
+        }
+        if (!config.allowCustomLabels) {
+          const extraLabels = (t.labels || []).filter(l => !allowedLabels.has(l));
+          if (extraLabels.length > 0) {
+            issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'labels', values: extraLabels, message: `${t.id}: Unconfigured label(s): ${extraLabels.join(', ')}` });
+          }
+        }
+        if (!config.allowCustomComponents) {
+          const extraComps = (t.components || []).filter(c => !allowedComps.has(c));
+          if (extraComps.length > 0) {
+            issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'components', values: extraComps, message: `${t.id}: Unconfigured component(s): ${extraComps.join(', ')}` });
+          }
+        }
+      });
+
+      return issues;
+    }
+
+    function buildConfiguredHtml(pristineHtml, nextConfig) {
+      const startMarker = '<script id="central-config" type="application/json">';
+      const startIdx = pristineHtml.indexOf(startMarker);
+      if (startIdx < 0) throw new Error('Central config tag not found in HTML template.');
+      const contentStart = startIdx + startMarker.length;
+      const endIdx = pristineHtml.indexOf('<' + '/script>', contentStart);
+      if (endIdx < 0) throw new Error('Closing script tag for central config not found.');
+
+      const outCfg = deepClone(nextConfig);
+      outCfg.configVersion = Number(outCfg.configVersion || 1) + 1;
+      const safeJson = JSON.stringify(outCfg, null, 2).replace(/<\//g, '<\\/');
+
+      return pristineHtml.slice(0, contentStart) + '\n' + safeJson + '\n  ' + pristineHtml.slice(endIdx);
+    }
+
+    /* --- CSV / TSV Parsing & Encoding Recovery --- */
+
+    function decodeTextBytes(buffer) {
+      const bytes = new Uint8Array(buffer);
+      if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+        return new TextDecoder('utf-8').decode(bytes.subarray(3));
+      }
+      try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      } catch (_err) {
+        return new TextDecoder('windows-1252').decode(bytes);
+      }
+    }
+
+    function detectDelimiter(text) {
+      const firstLines = text.split(/\r?\n/).slice(0, 5).join('\n');
+      const count = (ch) => {
+        let inQ = false;
+        let n = 0;
+        for (let i = 0; i < firstLines.length; i++) {
+          const c = firstLines[i];
+          if (c === '"') inQ = !inQ;
+          else if (!inQ && c === ch) n++;
+        }
+        return n;
+      };
+      const counts = [
+        { d: '\t', n: count('\t') },
+        { d: ';', n: count(';') },
+        { d: ',', n: count(',') }
+      ].sort((a, b) => b.n - a.n);
+      return counts[0].n > 0 ? counts[0].d : ',';
+    }
+
+    function parseCsvText(text, explicitDelimiter) {
+      const clean = String(text || '').replace(/^\uFEFF/, '');
+      const delim = explicitDelimiter || detectDelimiter(clean);
+      const rows = [];
+      let row = [];
+      let cell = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < clean.length; i++) {
+        const ch = clean[i];
+        const next = clean[i + 1];
+        if (inQuotes) {
+          if (ch === '"' && next === '"') {
+            cell += '"';
+            i++;
+          } else if (ch === '"') {
+            inQuotes = false;
+          } else {
+            cell += ch;
+          }
+        } else {
+          if (ch === '"') {
+            inQuotes = true;
+          } else if (ch === delim) {
+            row.push(cell);
+            cell = '';
+          } else if (ch === '\r' && next === '\n') {
+            row.push(cell);
+            rows.push(row);
+            row = [];
+            cell = '';
+            i++;
+          } else if (ch === '\n' || ch === '\r') {
+            row.push(cell);
+            rows.push(row);
+            row = [];
+            cell = '';
+          } else {
+            cell += ch;
+          }
+        }
+      }
+      if (cell.length > 0 || row.length > 0) {
+        row.push(cell);
+        rows.push(row);
+      }
+      return {
+        delimiter: delim,
+        rows: rows.filter(r => r.some(c => String(c || '').trim() !== ''))
+      };
+    }
+
+    /* --- Pure-JS ZIP + XLSX Reader --- */
+
+    function parseZipEntries(arrayBuffer) {
+      const bytes = new Uint8Array(arrayBuffer);
+      const dv = new DataView(arrayBuffer);
+      let eocdOffset = -1;
+      const minOffset = Math.max(0, bytes.length - 65557);
+      for (let i = bytes.length - 22; i >= minOffset; i--) {
+        if (dv.getUint32(i, true) === 0x06054b50) {
+          const commentLen = dv.getUint16(i + 20, true);
+          if (i + 22 + commentLen === bytes.length) {
+            eocdOffset = i;
+            break;
+          }
+        }
+      }
+      if (eocdOffset < 0) throw new Error('Invalid ZIP / XLSX file (EOCD header missing).');
+
+      const totalEntries = dv.getUint16(eocdOffset + 10, true);
+      let pos = dv.getUint32(eocdOffset + 16, true);
+      const decoder = new TextDecoder('utf-8');
+      const entries = new Map();
+
+      for (let i = 0; i < totalEntries; i++) {
+        if (dv.getUint32(pos, true) !== 0x02014b50) {
+          throw new Error('Corrupt ZIP Central Directory entry.');
+        }
+        const method = dv.getUint16(pos + 10, true);
+        const compSize = dv.getUint32(pos + 20, true);
+        const uncompSize = dv.getUint32(pos + 24, true);
+        const nameLen = dv.getUint16(pos + 28, true);
+        const extraLen = dv.getUint16(pos + 30, true);
+        const commentLen = dv.getUint16(pos + 32, true);
+        const localOffset = dv.getUint32(pos + 42, true);
+        const name = decoder.decode(bytes.subarray(pos + 46, pos + 46 + nameLen));
+        pos += 46 + nameLen + extraLen + commentLen;
+
+        if (dv.getUint32(localOffset, true) !== 0x04034b50) {
+          throw new Error('Corrupt ZIP Local File Header for ' + name);
+        }
+        const lNameLen = dv.getUint16(localOffset + 26, true);
+        const lExtraLen = dv.getUint16(localOffset + 28, true);
+        const dataStart = localOffset + 30 + lNameLen + lExtraLen;
+        const compressedData = bytes.subarray(dataStart, dataStart + compSize);
+        entries.set(name, { name, method, compSize, uncompSize, compressedData });
+      }
+      return entries;
+    }
+
+    async function readZipEntryText(entries, path, inflateRawFn) {
+      const entry = entries.get(path);
+      if (!entry) return null;
+      let rawBytes;
+      if (entry.method === 0) {
+        rawBytes = entry.compressedData;
+      } else if (entry.method === 8) {
+        if (inflateRawFn) {
+          rawBytes = await inflateRawFn(entry.compressedData);
+        } else if (typeof DecompressionStream !== 'undefined') {
+          const ds = new DecompressionStream('deflate-raw');
+          const stream = new Blob([entry.compressedData]).stream().pipeThrough(ds);
+          const buf = await new Response(stream).arrayBuffer();
+          rawBytes = new Uint8Array(buf);
+        } else {
+          throw new Error('Browser lacks DecompressionStream("deflate-raw") for compressed XLSX.');
+        }
+      } else {
+        throw new Error(`Unsupported ZIP compression method ${entry.method} in ${path}`);
+      }
+      return new TextDecoder('utf-8').decode(rawBytes);
+    }
+
+    function decodeXmlEntities(str) {
+      return String(str || '')
+        .replace(/&#x([0-9a-fA-F]+);/g, (_m, hex) => String.fromCodePoint(parseInt(hex, 16)))
+        .replace(/&#([0-9]+);/g, (_m, dec) => String.fromCodePoint(parseInt(dec, 10)))
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, '&');
+    }
+
+    function parseXmlAttrs(attrStr) {
+      const attrs = {};
+      const re = /([A-Za-z0-9_:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+      let m;
+      while ((m = re.exec(attrStr)) !== null) {
+        const key = m[1];
+        const short = key.includes(':') ? key.split(':').pop() : key;
+        const val = decodeXmlEntities(m[2] !== undefined ? m[2] : m[3]);
+        attrs[key] = val;
+        if (!(short in attrs)) attrs[short] = val;
+      }
+      return attrs;
+    }
+
+    function extractTagText(xml, tagName) {
+      const re = new RegExp(`<(?:[A-Za-z0-9_-]+:)?${tagName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/(?:[A-Za-z0-9_-]+:)?${tagName}>`, 'g');
+      const parts = [];
+      let m;
+      while ((m = re.exec(xml)) !== null) {
+        let inner = m[1];
+        if (inner.startsWith('<![CDATA[') && inner.endsWith(']]>')) {
+          inner = inner.slice(9, -3);
+        } else {
+          inner = decodeXmlEntities(inner.replace(/<[^>]+>/g, ''));
+        }
+        parts.push(inner);
+      }
+      return parts.join('');
+    }
+
+    function colLettersToIndex(ref) {
+      const match = /^([A-Za-z]+)/.exec(String(ref || ''));
+      if (!match) return -1;
+      const letters = match[1].toUpperCase();
+      let idx = 0;
+      for (let i = 0; i < letters.length; i++) {
+        idx = idx * 26 + (letters.charCodeAt(i) - 64);
+      }
+      return idx - 1;
+    }
+
+    function parseSharedStringsXml(xml) {
+      if (!xml) return [];
+      const strings = [];
+      const siRe = /<(?:[A-Za-z0-9_-]+:)?si(?:\s[^>]*)?>([\s\S]*?)<\/(?:[A-Za-z0-9_-]+:)?si>/g;
+      let m;
+      while ((m = siRe.exec(xml)) !== null) {
+        const cleaned = m[1].replace(/<(?:[A-Za-z0-9_-]+:)?rPh(?:\s[^>]*)?>[\s\S]*?<\/(?:[A-Za-z0-9_-]+:)?rPh>/g, '');
+        strings.push(extractTagText(cleaned, 't'));
+      }
+      return strings;
+    }
+
+    function parseWorksheetXml(xml, sharedStrings) {
+      const rows = [];
+      const rowRe = /<(?:[A-Za-z0-9_-]+:)?row(?:\s[^>]*)?>([\s\S]*?)<\/(?:[A-Za-z0-9_-]+:)?row>/g;
+      let rm;
+      while ((rm = rowRe.exec(xml)) !== null) {
+        const rowInner = rm[1];
+        const rowCells = [];
+        let seqCol = 0;
+        const cellRe = /<(?:[A-Za-z0-9_-]+:)?c(\s[^>]*?)?(?:\/>|>([\s\S]*?)<\/(?:[A-Za-z0-9_-]+:)?c>)/g;
+        let cm;
+        while ((cm = cellRe.exec(rowInner)) !== null) {
+          const attrs = parseXmlAttrs(cm[1] || '');
+          const body = cm[2] || '';
+          const colIdx = attrs.r ? colLettersToIndex(attrs.r) : seqCol;
+          seqCol = colIdx + 1;
+          while (rowCells.length <= colIdx) rowCells.push('');
+
+          const type = attrs.t || '';
+          let value = '';
+          if (type === 's') {
+            const idxStr = extractTagText(body, 'v').trim();
+            value = idxStr === '' ? '' : (sharedStrings[Number(idxStr)] ?? '');
+          } else if (type === 'inlineStr') {
+            value = extractTagText(body, 't');
+          } else if (type === 'b') {
+            value = extractTagText(body, 'v').trim() === '1' ? 'TRUE' : 'FALSE';
+          } else {
+            value = extractTagText(body, 'v');
+          }
+          rowCells[colIdx] = value;
+        }
+        if (rowCells.some(c => String(c || '').trim() !== '')) {
+          rows.push(rowCells);
+        }
+      }
+      return rows;
+    }
+
+    async function parseXlsxSheets(arrayBuffer, inflateRawFn) {
+      const entries = parseZipEntries(arrayBuffer);
+      const wbXml = await readZipEntryText(entries, 'xl/workbook.xml', inflateRawFn);
+      const relsXml = await readZipEntryText(entries, 'xl/_rels/workbook.xml.rels', inflateRawFn);
+      const ssXml = await readZipEntryText(entries, 'xl/sharedStrings.xml', inflateRawFn);
+      const sharedStrings = parseSharedStringsXml(ssXml);
+
+      const relMap = {};
+      if (relsXml) {
+        const relRe = /<(?:[A-Za-z0-9_-]+:)?Relationship(\s[^>]*?)\s*\/?>/g;
+        let m;
+        while ((m = relRe.exec(relsXml)) !== null) {
+          const attrs = parseXmlAttrs(m[1]);
+          if (attrs.Id && attrs.Target) {
+            let target = attrs.Target.replace(/^\//, '');
+            if (!target.startsWith('xl/')) target = 'xl/' + target;
+            relMap[attrs.Id] = target;
+          }
+        }
+      }
+
+      const sheetMeta = [];
+      if (wbXml) {
+        const shRe = /<(?:[A-Za-z0-9_-]+:)?sheet(\s[^>]*?)\s*\/?>/g;
+        let m;
+        while ((m = shRe.exec(wbXml)) !== null) {
+          const attrs = parseXmlAttrs(m[1]);
+          const rid = attrs['r:id'] || attrs.id;
+          const path = relMap[rid] || `xl/worksheets/sheet${sheetMeta.length + 1}.xml`;
+          sheetMeta.push({ name: attrs.name || `Sheet ${sheetMeta.length + 1}`, path });
+        }
+      }
+
+      if (sheetMeta.length === 0) {
+        for (const key of entries.keys()) {
+          if (/^xl\/worksheets\/sheet\d+\.xml$/i.test(key)) {
+            sheetMeta.push({ name: key.split('/').pop(), path: key });
+          }
+        }
+      }
+
+      const sheets = [];
+      for (const sm of sheetMeta) {
+        const wsXml = await readZipEntryText(entries, sm.path, inflateRawFn);
+        if (wsXml) {
+          sheets.push({ name: sm.name, rows: parseWorksheetXml(wsXml, sharedStrings) });
+        }
+      }
+      return sheets;
+    }
+
+    /* --- Column Auto-Mapping & Xray Import Normalization --- */
+
+    function autoMapHeaders(headers) {
+      const mapping = {
+        tcid: -1,
+        summary: -1,
+        priority: -1,
+        labels: -1,
+        components: -1,
+        requirement: -1,
+        action: -1,
+        data: -1,
+        expected: -1
+      };
+      headers.forEach((raw, idx) => {
+        const h = String(raw || '').trim().toLowerCase();
+        if (!h) return;
+        if (mapping.tcid === -1 && /^(tcid|tc[\s_-]*id|issue[\s_-]*id|test[\s_-]*id|id)$/.test(h)) mapping.tcid = idx;
+        else if (mapping.summary === -1 && /(test\s*summary|summary|title|test\s*name|name)/.test(h)) mapping.summary = idx;
+        else if (mapping.priority === -1 && /(priority|prio|severity)/.test(h)) mapping.priority = idx;
+        else if (mapping.labels === -1 && /(label|labels|tag|tags)/.test(h)) mapping.labels = idx;
+        else if (mapping.components === -1 && /(component|components|module|area)/.test(h)) mapping.components = idx;
+        else if (mapping.requirement === -1 && /(requirement|story|req|tests|link)/.test(h)) mapping.requirement = idx;
+        else if (mapping.action === -1 && /(action|step\s*action|step|description)/.test(h)) mapping.action = idx;
+        else if (mapping.data === -1 && /(data|test\s*data|input)/.test(h)) mapping.data = idx;
+        else if (mapping.expected === -1 && /(expected|result|outcome)/.test(h)) mapping.expected = idx;
+      });
+      return mapping;
+    }
+
+    function normalizeImportedPriority(raw, config) {
+      const s = String(raw || '').trim();
+      if (!s) return config.defaultPriority || '2';
+      const lower = s.toLowerCase();
+      if (/^1\b/.test(lower) || lower === 'high' || lower === 'critical' || lower === 'p1') return '1';
+      if (/^2\b/.test(lower) || lower === 'medium' || lower === 'normal' || lower === 'p2') return '2';
+      if (/^3\b/.test(lower) || lower === 'low' || lower === 'minor' || lower === 'p3') return '3';
+      return s;
+    }
+
+    function parseMultiField(raw) {
+      const s = String(raw || '').trim();
+      if (!s) return [];
+      const splitter = s.includes(';') ? ';' : ',';
+      return dedupeStrings(s.split(splitter).map(x => x.trim()));
+    }
+
+    function normalizeImportedRows(rows, mapping, hasHeaderRow, config) {
+      const dataRows = hasHeaderRow ? rows.slice(1) : rows;
+      const getVal = (row, idx) => (idx >= 0 && idx < row.length) ? String(row[idx] ?? '').trim() : '';
+
+      const tests = [];
+      const byId = new Map();
+      let autoNum = 1;
+      let lastTest = null;
+
+      dataRows.forEach(row => {
+        const rawId = getVal(row, mapping.tcid);
+        const rawSummary = getVal(row, mapping.summary);
+        const rawPrio = getVal(row, mapping.priority);
+        const rawLabels = getVal(row, mapping.labels);
+        const rawComps = getVal(row, mapping.components);
+        const rawReq = getVal(row, mapping.requirement);
+        const action = getVal(row, mapping.action);
+        const data = getVal(row, mapping.data);
+        const expected = getVal(row, mapping.expected);
+
+        if (!rawId && !rawSummary && !action && !data && !expected) return;
+
+        let target = null;
+        if (rawId && byId.has(rawId)) {
+          target = byId.get(rawId);
+        } else if (!rawId && !rawSummary && lastTest) {
+          target = lastTest;
+        } else {
+          const newId = rawId || ('TC-' + String(autoNum++).padStart(2, '0'));
+          target = {
+            id: newId,
+            summary: rawSummary || 'Imported test ' + newId,
+            priority: normalizeImportedPriority(rawPrio, config),
+            labels: parseMultiField(rawLabels),
+            components: parseMultiField(rawComps),
+            requirement: rawReq,
+            steps: []
+          };
+          tests.push(target);
+          byId.set(newId, target);
+        }
+
+        if (rawSummary && !target.summary) target.summary = rawSummary;
+        if (rawLabels && target.labels.length === 0) target.labels = parseMultiField(rawLabels);
+        if (rawComps && target.components.length === 0) target.components = parseMultiField(rawComps);
+        if (rawReq && !target.requirement) target.requirement = rawReq;
+
+        if (action || data || expected || target.steps.length === 0) {
+          target.steps.push({ action, data, expected });
+        }
+        lastTest = target;
+      });
+
+      if (tests.length === 0) {
+        return [{
+          id: 'TC-01',
+          summary: 'Imported empty test',
+          priority: config.defaultPriority || '2',
+          labels: [],
+          components: [],
+          requirement: '',
+          steps: [{ action: '', data: '', expected: '' }]
+        }];
+      }
+      return tests;
+    }
+
+    /* --- Multi-Project Schema & Local Folder Sync Engine --- */
+
+    function slugifyProjectName(name, existingFileNames) {
+      const base = String(name || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'project';
+      const used = new Set((existingFileNames || []).map(f => String(f || '').toLowerCase()));
+      if (!used.has(base + '.json') && base !== 'central-config') {
+        return { id: base, fileName: base + '.json' };
+      }
+      let n = 2;
+      while (used.has(`${base}-${n}.json`)) n++;
+      const stem = `${base}-${n}`;
+      return { id: stem, fileName: stem + '.json' };
+    }
+
+    function serializeProjectFile(project) {
+      return JSON.stringify({
+        format: 'xray-test-studio-project',
+        schemaVersion: 1,
+        id: project.id,
+        name: project.name,
+        jiraProjectKey: project.jiraProjectKey || '',
+        updatedAt: project.updatedAt || new Date().toISOString(),
+        tests: project.tests || []
+      }, null, 2);
+    }
+
+    function parseProjectFile(text, fileName) {
+      let parsed;
+      try {
+        parsed = JSON.parse(String(text || ''));
+      } catch (_e) {
+        return null;
+      }
+      if (!parsed || typeof parsed !== 'object' || parsed.format !== 'xray-test-studio-project' || !Array.isArray(parsed.tests)) {
+        return null;
+      }
+      const stem = String(fileName || parsed.id || 'project').replace(/\.json$/i, '');
+      return {
+        id: String(parsed.id || stem),
+        fileName: String(fileName || (stem + '.json')),
+        name: String(parsed.name || stem),
+        jiraProjectKey: String(parsed.jiraProjectKey || ''),
+        updatedAt: String(parsed.updatedAt || new Date().toISOString()),
+        tests: parsed.tests
+      };
+    }
+
+    function createSerializedWriteQueue() {
+      const chains = new Map();
+      return {
+        enqueue(key, fn) {
+          const prev = chains.get(key) || Promise.resolve();
+          const next = prev.then(() => fn(), () => fn());
+          chains.set(key, next.catch(() => {}));
+          return next;
+        }
+      };
+    }
+
+    async function writeTextFileToDirectory(dirHandle, fileName, text, writeQueue) {
+      const doWrite = async () => {
+        const fh = await dirHandle.getFileHandle(fileName, { create: true });
+        const writable = await fh.createWritable();
+        await writable.write(text);
+        await writable.close();
+      };
+      return writeQueue ? writeQueue.enqueue(fileName, doWrite) : doWrite();
+    }
+
+    async function loadWorkspaceFromDirectory(dirHandle, fallbackConfig) {
+      let config = deepClone(fallbackConfig);
+      let hasConfigFile = false;
+      const projects = [];
+
+      for await (const [name, handle] of dirHandle.entries()) {
+        if (!handle || handle.kind !== 'file') continue;
+        if (name.startsWith('.') || !name.toLowerCase().endsWith('.json')) continue;
+
+        const file = await handle.getFile();
+        const text = await file.text();
+
+        if (name.toLowerCase() === 'central-config.json') {
+          try {
+            const parsedCfg = JSON.parse(text);
+            config = normalizeConfig(parsedCfg, fallbackConfig);
+            hasConfigFile = true;
+          } catch (_e) {}
+          continue;
+        }
+
+        const project = parseProjectFile(text, name);
+        if (project) projects.push(project);
+      }
+
+      projects.sort((a, b) => a.name.localeCompare(b.name));
+      return { config, hasConfigFile, projects };
+    }
+
+    async function saveConfigToDirectory(dirHandle, config, writeQueue) {
+      return writeTextFileToDirectory(dirHandle, 'central-config.json', JSON.stringify(config, null, 2), writeQueue);
+    }
+
+    async function saveProjectToDirectory(dirHandle, project, config, writeQueue) {
+      await writeTextFileToDirectory(dirHandle, project.fileName, serializeProjectFile(project), writeQueue);
+      if (config && config.autoWriteCsvToFolder) {
+        const csvName = project.fileName.replace(/\.json$/i, '') + '.xray.csv';
+        const csv = buildXrayCsv(project.tests || [], config);
+        const payload = config.includeUtf8Bom ? ('\uFEFF' + csv) : csv;
+        await writeTextFileToDirectory(dirHandle, csvName, payload, writeQueue);
+      }
+    }
+
+    async function deleteProjectFromDirectory(dirHandle, project, writeQueue) {
+      const removeEntrySafe = async (name) => {
+        try {
+          await dirHandle.removeEntry(name);
+        } catch (err) {
+          if (err && err.name === 'NotFoundError') return;
+          throw err;
+        }
+      };
+      const csvName = project.fileName.replace(/\.json$/i, '') + '.xray.csv';
+      if (writeQueue) {
+        await writeQueue.enqueue(project.fileName, () => removeEntrySafe(project.fileName));
+        await writeQueue.enqueue(csvName, () => removeEntrySafe(csvName));
+      } else {
+        await removeEntrySafe(project.fileName);
+        await removeEntrySafe(csvName);
+      }
+    }
+
+    /* =========================================================================
+       APPLICATION STATE & BOOTSTRAP
+       ========================================================================= */
+
+    function readBakedConfig() {
+      const el = document.getElementById('central-config');
+      if (!el) return {};
+      try {
+        return JSON.parse(el.textContent);
+      } catch (_err) {
+        return {};
+      }
+    }
+
+    const DEFAULT_FALLBACK_CONFIG = {
+      configVersion: 1,
+      labels: ['Regression', 'Smoke', 'UI', 'API', 'Security', 'EdgeCase'],
+      components: ['Authentication', 'Checkout', 'Billing', 'Reporting', 'Notifications'],
+      allowCustomLabels: false,
+      allowCustomComponents: false,
+      priorities: [
+        { value: '1', label: '1 — High' },
+        { value: '2', label: '2 — Medium' },
+        { value: '3', label: '3 — Low' }
+      ],
+      defaultPriority: '2',
+      defaultTestType: 'Manual',
+      csvDelimiter: ',',
+      listDelimiter: ';',
+      includeUtf8Bom: true,
+      autoWriteCsvToFolder: true,
+      columnOrder: ['action', 'data', 'expected'],
+      hiddenColumns: [],
+      headers: {
+        tcid: 'TCID',
+        summary: 'Test Summary',
+        testType: 'Test Type',
+        priority: 'Priority',
+        labels: 'Labels',
+        components: 'Components',
+        requirement: 'Requirement',
+        action: 'Action',
+        data: 'Data',
+        expected: 'Expected Result'
+      }
+    };
+
+    const BAKED_CONFIG = normalizeConfig(readBakedConfig(), DEFAULT_FALLBACK_CONFIG);
+
+    function loadInitialConfig() {
+      try {
+        const storedRaw = localStorage.getItem(STORAGE_CONFIG_KEY);
+        if (storedRaw) {
+          const parsed = JSON.parse(storedRaw);
+          if (Number(parsed.configVersion || 0) >= Number(BAKED_CONFIG.configVersion || 1)) {
+            return normalizeConfig(parsed, BAKED_CONFIG);
+          }
+        }
+      } catch (_e) {}
+      return deepClone(BAKED_CONFIG);
+    }
+
+    function makeDefaultTests(cfg) {
+      return [
+        {
+          id: 'TC-01',
+          summary: 'Checkout with promo code',
+          priority: '1',
+          labels: ['Regression', 'Smoke'],
+          components: ['Checkout', 'Billing'],
+          requirement: 'SHOP-214',
+          steps: [
+            { action: 'Open cart with 1 item', data: '', expected: 'Cart total displays' },
+            { action: 'Apply promo code', data: 'SAVE20', expected: '20% discount applied' },
+            { action: 'Complete payment', data: 'Visa test card', expected: 'Order confirmed at discounted total' }
+          ]
+        },
+        {
+          id: 'TC-02',
+          summary: 'Password reset email flow',
+          priority: cfg.defaultPriority || '2',
+          labels: ['Security'],
+          components: ['Authentication'],
+          requirement: 'AUTH-108',
+          steps: [
+            { action: 'Click Forgot password', data: '', expected: 'Reset form opens' },
+            { action: 'Submit registered email', data: 'qa@example.com', expected: 'Reset email delivered' }
+          ]
+        }
+      ];
+    }
+
+    function loadInitialProjects(cfg) {
+      try {
+        const rawProj = localStorage.getItem(STORAGE_PROJECTS_KEY);
+        if (rawProj) {
+          const parsed = JSON.parse(rawProj);
+          if (parsed && Array.isArray(parsed.projects) && parsed.projects.length > 0) {
+            return {
+              projects: parsed.projects,
+              activeProjectIdx: Math.max(0, Math.min(Number(parsed.activeProjectIdx || 0), parsed.projects.length - 1))
+            };
+          }
+        }
+      } catch (_e) {}
+
+      try {
+        const legacyRaw = localStorage.getItem(STORAGE_SUITE_KEY);
+        if (legacyRaw) {
+          const legacyTests = JSON.parse(legacyRaw);
+          if (Array.isArray(legacyTests) && legacyTests.length > 0) {
+            return {
+              projects: [{
+                id: 'default-project',
+                fileName: 'default-project.json',
+                name: 'Default Project',
+                jiraProjectKey: '',
+                updatedAt: new Date().toISOString(),
+                tests: legacyTests
+              }],
+              activeProjectIdx: 0
+            };
+          }
+        }
+      } catch (_e) {}
+
+      return {
+        projects: [{
+          id: 'checkout-and-auth',
+          fileName: 'checkout-and-auth.json',
+          name: 'Checkout & Auth',
+          jiraProjectKey: 'SHOP',
+          updatedAt: new Date().toISOString(),
+          tests: makeDefaultTests(cfg)
+        }],
+        activeProjectIdx: 0
+      };
+    }
+
+    const initialTheme = (() => {
+      try { return localStorage.getItem(STORAGE_THEME_KEY) || 'auto'; } catch (_e) { return 'auto'; }
+    })();
+
+    const initialWorkspace = loadInitialProjects(BAKED_CONFIG);
+    const folderWriteQueue = createSerializedWriteQueue();
+    let folderSaveTimer = null;
+
+    const state = {
+      config: loadInitialConfig(),
+      projects: initialWorkspace.projects,
+      activeProjectIdx: initialWorkspace.activeProjectIdx,
+      activeTestIdx: 0,
+      row: 0,
+      col: 0,
+      mode: 'nav', // 'nav' | 'edit' | 'summary' | 'requirement' | 'modal'
+      modal: null, // null | 'palette' | 'labels' | 'components' | 'config' | 'import' | 'export' | 'projects' | 'help'
+      editDraft: '',
+      metaDraft: '',
+      undoStack: [],
+      redoStack: [],
+      theme: initialTheme,
+      statusMsg: 'Keyboard-ready — press ? for shortcuts, w for Projects, o for Local Folder',
+      statusTone: '',
+      paletteQuery: '',
+      paletteIdx: 0,
+      picker: {
+        kind: 'labels',
+        selected: [],
+        filter: '',
+        idx: 0
+      },
+      configDraft: null,
+      importState: {
+        sourceName: '',
+        sheets: [],
+        sheetIdx: 0,
+        rows: [],
+        hasHeaderRow: true,
+        mapping: null,
+        error: ''
+      },
+      exportCopied: false,
+      dirHandle: null,
+      pendingDirHandle: null,
+      syncStatus: 'idle', // 'idle' | 'saving' | 'saved' | 'error'
+      lastSyncTime: '',
+      projectsModal: {
+        idx: 0,
+        submode: 'list', // 'list' | 'new' | 'rename'
+        draftName: '',
+        draftKey: ''
+      }
+    };
+
+    Object.defineProperty(state, 'tests', {
+      enumerable: true,
+      get() {
+        return activeProject().tests;
+      },
+      set(val) {
+        activeProject().tests = val;
+      }
+    });
+
+    function activeProject() {
+      return state.projects[state.activeProjectIdx] || state.projects[0];
+    }
+
+    function supportsDirectorySync() {
+      return typeof window !== 'undefined' && window.isSecureContext && typeof window.showDirectoryPicker === 'function';
+    }
+
+    function formatClockTime() {
+      const d = new Date();
+      return [d.getHours(), d.getMinutes(), d.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+    }
+
+    function applyTheme() {
+      if (state.theme === 'light' || state.theme === 'dark') {
+        document.documentElement.setAttribute('data-theme', state.theme);
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      try { localStorage.setItem(STORAGE_THEME_KEY, state.theme); } catch (_e) {}
+    }
+
+    function persistConfig(syncFolder = true) {
+      try { localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(state.config)); } catch (_e) {}
+      if (syncFolder && state.dirHandle) {
+        saveConfigToDirectory(state.dirHandle, state.config, folderWriteQueue).catch(err => {
+          state.syncStatus = 'error';
+          setStatus('Folder config write error: ' + err.message, 'err');
+          updateFolderPillDom();
+        });
+      }
+    }
+
+    function persistWorkspaceLocalOnly() {
+      try {
+        localStorage.setItem(STORAGE_PROJECTS_KEY, JSON.stringify({
+          activeProjectIdx: state.activeProjectIdx,
+          projects: state.projects
+        }));
+      } catch (_e) {}
+    }
+
+    function updateFolderPillDom() {
+      const pill = document.getElementById('folder-pill');
+      if (!pill) return;
+      const meta = getFolderPillMeta();
+      pill.className = 'folder-pill ' + meta.cls;
+      pill.innerHTML = meta.html;
+    }
+
+    function scheduleFolderSave(projectIdx = state.activeProjectIdx) {
+      if (!state.dirHandle) return;
+      const proj = state.projects[projectIdx];
+      if (!proj) return;
+      if (folderSaveTimer) clearTimeout(folderSaveTimer);
+      state.syncStatus = 'saving';
+      updateFolderPillDom();
+      folderSaveTimer = setTimeout(async () => {
+        folderSaveTimer = null;
+        if (!state.dirHandle) return;
+        try {
+          await saveProjectToDirectory(state.dirHandle, proj, state.config, folderWriteQueue);
+          state.syncStatus = 'saved';
+          state.lastSyncTime = formatClockTime();
+          updateFolderPillDom();
+        } catch (err) {
+          state.syncStatus = 'error';
+          setStatus('Folder save failed: ' + err.message, 'err');
+          updateFolderPillDom();
+        }
+      }, 400);
+    }
+
+    async function flushFolderSave() {
+      if (!state.dirHandle) return;
+      if (folderSaveTimer) {
+        clearTimeout(folderSaveTimer);
+        folderSaveTimer = null;
+      }
+      const proj = activeProject();
+      state.syncStatus = 'saving';
+      updateFolderPillDom();
+      try {
+        await saveConfigToDirectory(state.dirHandle, state.config, folderWriteQueue);
+        await saveProjectToDirectory(state.dirHandle, proj, state.config, folderWriteQueue);
+        state.syncStatus = 'saved';
+        state.lastSyncTime = formatClockTime();
+        setStatus(`Saved ${proj.fileName}${state.config.autoWriteCsvToFolder ? ' + .xray.csv' : ''} to folder`, 'ok');
+        render(false);
+      } catch (err) {
+        state.syncStatus = 'error';
+        setStatus('Folder save failed: ' + err.message, 'err');
+        render(false);
+      }
+    }
+
+    function persistSuite() {
+      const proj = activeProject();
+      proj.updatedAt = new Date().toISOString();
+      persistWorkspaceLocalOnly();
+      scheduleFolderSave(state.activeProjectIdx);
+    }
+
+    /* --- IndexedDB Persistence for Directory Handle --- */
+
+    function openFsIdb() {
+      return new Promise((resolve, reject) => {
+        if (typeof indexedDB === 'undefined') {
+          reject(new Error('IndexedDB unavailable'));
+          return;
+        }
+        const req = indexedDB.open('xrayStudioFS', 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('handles')) {
+            db.createObjectStore('handles');
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function idbSaveDirHandle(handle) {
+      try {
+        const db = await openFsIdb();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction('handles', 'readwrite');
+          tx.objectStore('handles').put(handle, 'workspaceDir');
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+        db.close();
+      } catch (_e) {}
+    }
+
+    async function idbLoadDirHandle() {
+      try {
+        const db = await openFsIdb();
+        const handle = await new Promise((resolve, reject) => {
+          const tx = db.transaction('handles', 'readonly');
+          const req = tx.objectStore('handles').get('workspaceDir');
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => reject(req.error);
+        });
+        db.close();
+        return handle;
+      } catch (_e) {
+        return null;
+      }
+    }
+
+    async function idbClearDirHandle() {
+      try {
+        const db = await openFsIdb();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction('handles', 'readwrite');
+          tx.objectStore('handles').delete('workspaceDir');
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        });
+        db.close();
+      } catch (_e) {}
+    }
+
+    async function syncOnFolderConnect(handle) {
+      state.dirHandle = handle;
+      state.pendingDirHandle = null;
+      state.syncStatus = 'saving';
+      const loaded = await loadWorkspaceFromDirectory(handle, BAKED_CONFIG);
+
+      if (loaded.hasConfigFile) {
+        state.config = loaded.config;
+        persistConfig(false);
+      } else {
+        await saveConfigToDirectory(handle, state.config, folderWriteQueue);
+      }
+
+      if (loaded.projects.length > 0) {
+        state.projects = loaded.projects;
+        state.activeProjectIdx = 0;
+        state.activeTestIdx = 0;
+        state.row = 0;
+        state.col = 0;
+        state.undoStack = [];
+        state.redoStack = [];
+        persistWorkspaceLocalOnly();
+        setStatus(`Connected "${handle.name}" — loaded ${loaded.projects.length} project(s)`, 'ok');
+      } else {
+        for (const p of state.projects) {
+          await saveProjectToDirectory(handle, p, state.config, folderWriteQueue);
+        }
+        persistWorkspaceLocalOnly();
+        setStatus(`Initialized "${handle.name}" with ${state.projects.length} project(s)`, 'ok');
+      }
+
+      state.syncStatus = 'saved';
+      state.lastSyncTime = formatClockTime();
+      if (state.modal === 'projects') {
+        state.projectsModal.idx = Math.min(state.projectsModal.idx, state.projects.length - 1);
+      }
+      render(true);
+    }
+
+    async function initPersistedFolder() {
+      if (!supportsDirectorySync()) return;
+      const handle = await idbLoadDirHandle();
+      if (!handle) return;
+      try {
+        const perm = await handle.queryPermission({ mode: 'readwrite' });
+        if (perm === 'granted') {
+          await syncOnFolderConnect(handle);
+        } else if (perm === 'prompt') {
+          state.pendingDirHandle = handle;
+          setStatus(`Click "Reconnect ${handle.name}" or press o to resume folder sync`, 'warn');
+          render(false);
+        }
+      } catch (_e) {
+        await idbClearDirHandle();
+      }
+    }
+
+    async function connectLocalFolder(forceNewPicker = false) {
+      if (!supportsDirectorySync()) {
+        setStatus('Direct folder access requires https:// (e.g. github.io) or http://localhost — using Browser Storage', 'warn');
+        openProjectsModal();
+        return;
+      }
+
+      try {
+        if (!forceNewPicker && state.pendingDirHandle) {
+          const perm = await state.pendingDirHandle.requestPermission({ mode: 'readwrite' });
+          if (perm === 'granted') {
+            await syncOnFolderConnect(state.pendingDirHandle);
+            return;
+          }
+        }
+        const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        await idbSaveDirHandle(handle);
+        await syncOnFolderConnect(handle);
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          setStatus('Folder selection cancelled');
+          render(true);
+          return;
+        }
+        setStatus('Could not open folder: ' + (err?.message || err), 'err');
+        render(true);
+      }
+    }
+
+    async function rescanConnectedFolder() {
+      if (!state.dirHandle) return;
+      try {
+        await syncOnFolderConnect(state.dirHandle);
+      } catch (err) {
+        setStatus('Folder rescan failed: ' + err.message, 'err');
+        render(true);
+      }
+    }
+
+    async function disconnectLocalFolder() {
+      if (folderSaveTimer) {
+        clearTimeout(folderSaveTimer);
+        folderSaveTimer = null;
+      }
+      state.dirHandle = null;
+      state.pendingDirHandle = null;
+      state.syncStatus = 'idle';
+      state.lastSyncTime = '';
+      await idbClearDirHandle();
+      setStatus('Disconnected local folder (using Browser Storage)', 'warn');
+      render(true);
+    }
+
+    /* --- Multi-Project Actions --- */
+
+    function openProjectsModal() {
+      state.projectsModal = {
+        idx: state.activeProjectIdx,
+        submode: 'list',
+        draftName: '',
+        draftKey: ''
+      };
+      setStatus('Projects & Local Folder manager');
+      openModal('projects');
+    }
+
+    function switchProject(idx, shouldCloseModal = false) {
+      if (idx < 0 || idx >= state.projects.length) return;
+      state.activeProjectIdx = idx;
+      state.activeTestIdx = 0;
+      state.row = 0;
+      state.col = 0;
+      state.mode = 'nav';
+      persistWorkspaceLocalOnly();
+      if (shouldCloseModal) {
+        closeModal(`Switched to project: ${activeProject().name}`);
+      } else {
+        setStatus(`Active project: ${activeProject().name}`, 'ok');
+        render(true);
+      }
+    }
+
+    async function createProject(name, jiraKey) {
+      const cleanName = String(name || '').trim();
+      if (!cleanName) return;
+      const existingNames = state.projects.map(p => p.fileName);
+      const { id, fileName } = slugifyProjectName(cleanName, existingNames);
+      const proj = {
+        id,
+        fileName,
+        name: cleanName,
+        jiraProjectKey: String(jiraKey || '').trim().toUpperCase(),
+        updatedAt: new Date().toISOString(),
+        tests: [{
+          id: 'TC-01',
+          summary: 'New test case',
+          priority: state.config.defaultPriority || '2',
+          labels: [],
+          components: [],
+          requirement: '',
+          steps: [{ action: '', data: '', expected: '' }]
+        }]
+      };
+      state.projects.push(proj);
+      state.activeProjectIdx = state.projects.length - 1;
+      state.activeTestIdx = 0;
+      state.row = 0;
+      state.col = 0;
+      persistWorkspaceLocalOnly();
+      if (state.dirHandle) {
+        try {
+          await saveProjectToDirectory(state.dirHandle, proj, state.config, folderWriteQueue);
+          state.syncStatus = 'saved';
+          state.lastSyncTime = formatClockTime();
+        } catch (err) {
+          setStatus('Created locally, folder write failed: ' + err.message, 'err');
+        }
+      }
+      closeModal(`Created project "${proj.name}" (${proj.fileName})`);
+    }
+
+    async function renameProject(idx, nextName, nextJiraKey) {
+      const proj = state.projects[idx];
+      if (!proj) return;
+      const cleanName = String(nextName || '').trim();
+      if (!cleanName) return;
+      proj.name = cleanName;
+      proj.jiraProjectKey = String(nextJiraKey || '').trim().toUpperCase();
+      proj.updatedAt = new Date().toISOString();
+      persistWorkspaceLocalOnly();
+      if (state.dirHandle) {
+        await saveProjectToDirectory(state.dirHandle, proj, state.config, folderWriteQueue);
+        state.syncStatus = 'saved';
+        state.lastSyncTime = formatClockTime();
+      }
+      state.projectsModal.submode = 'list';
+      setStatus(`Updated project "${proj.name}"`, 'ok');
+      render(true);
+    }
+
+    async function duplicateProjectAt(idx) {
+      const src = state.projects[idx];
+      if (!src) return;
+      const newName = src.name + ' Copy';
+      const { id, fileName } = slugifyProjectName(newName, state.projects.map(p => p.fileName));
+      const copy = {
+        id,
+        fileName,
+        name: newName,
+        jiraProjectKey: src.jiraProjectKey || '',
+        updatedAt: new Date().toISOString(),
+        tests: deepClone(src.tests || [])
+      };
+      state.projects.splice(idx + 1, 0, copy);
+      state.projectsModal.idx = idx + 1;
+      persistWorkspaceLocalOnly();
+      if (state.dirHandle) {
+        await saveProjectToDirectory(state.dirHandle, copy, state.config, folderWriteQueue);
+        state.syncStatus = 'saved';
+        state.lastSyncTime = formatClockTime();
+      }
+      setStatus(`Duplicated into "${copy.name}" (${copy.fileName})`, 'ok');
+      render(true);
+    }
+
+    async function deleteProjectAt(idx) {
+      if (state.projects.length <= 1) {
+        setStatus('Workspace must keep at least 1 project', 'warn');
+        render(true);
+        return;
+      }
+      const removed = state.projects[idx];
+      state.projects.splice(idx, 1);
+      if (state.activeProjectIdx >= state.projects.length) {
+        state.activeProjectIdx = state.projects.length - 1;
+      } else if (idx < state.activeProjectIdx) {
+        state.activeProjectIdx -= 1;
+      }
+      state.projectsModal.idx = Math.min(idx, state.projects.length - 1);
+      state.activeTestIdx = 0;
+      state.row = 0;
+      state.col = 0;
+      persistWorkspaceLocalOnly();
+      if (state.dirHandle && removed) {
+        try {
+          await deleteProjectFromDirectory(state.dirHandle, removed, folderWriteQueue);
+          state.syncStatus = 'saved';
+          state.lastSyncTime = formatClockTime();
+        } catch (err) {
+          setStatus('Removed from workspace; file delete error: ' + err.message, 'warn');
+          render(true);
+          return;
+        }
+      }
+      setStatus(`Deleted project "${removed.name}"`, 'warn');
+      render(true);
+    }
+
+    function downloadActiveProjectJson() {
+      const proj = activeProject();
+      triggerDownload(proj.fileName, serializeProjectFile(proj), 'application/json');
+      setStatus(`Downloaded ${proj.fileName}`, 'ok');
+      render(false);
+    }
+
+    async function importProjectJsonFile(file) {
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const parsedProj = parseProjectFile(text, file.name);
+        let newProj;
+        if (parsedProj) {
+          const { id, fileName } = slugifyProjectName(parsedProj.name, state.projects.map(p => p.fileName));
+          newProj = Object.assign({}, parsedProj, {
+            id: state.projects.some(p => p.fileName === parsedProj.fileName) ? id : parsedProj.id,
+            fileName: state.projects.some(p => p.fileName === parsedProj.fileName) ? fileName : parsedProj.fileName,
+            updatedAt: new Date().toISOString()
+          });
+        } else {
+          const raw = JSON.parse(text);
+          if (!Array.isArray(raw)) throw new Error('Expected a project JSON or test array.');
+          const baseName = file.name.replace(/\.json$/i, '');
+          const { id, fileName } = slugifyProjectName(baseName, state.projects.map(p => p.fileName));
+          newProj = {
+            id,
+            fileName,
+            name: baseName,
+            jiraProjectKey: '',
+            updatedAt: new Date().toISOString(),
+            tests: raw
+          };
+        }
+        state.projects.push(newProj);
+        state.activeProjectIdx = state.projects.length - 1;
+        state.projectsModal.idx = state.activeProjectIdx;
+        state.activeTestIdx = 0;
+        state.row = 0;
+        state.col = 0;
+        persistWorkspaceLocalOnly();
+        if (state.dirHandle) {
+          await saveProjectToDirectory(state.dirHandle, newProj, state.config, folderWriteQueue);
+        }
+        setStatus(`Added project "${newProj.name}"`, 'ok');
+        render(true);
+      } catch (err) {
+        setStatus('Project import failed: ' + err.message, 'err');
+        render(false);
+      }
+    }
+
+    function activeTest() {
+      return state.tests[state.activeTestIdx] || state.tests[0];
+    }
+
+    function clampCursor() {
+      if (state.projects.length === 0) {
+        state.projects = loadInitialProjects(state.config).projects;
+      }
+      state.activeProjectIdx = Math.max(0, Math.min(state.activeProjectIdx, state.projects.length - 1));
+      if (state.tests.length === 0) {
+        state.tests = makeDefaultTests(state.config);
+      }
+      state.activeTestIdx = Math.max(0, Math.min(state.activeTestIdx, state.tests.length - 1));
+      const t = activeTest();
+      if (!t.steps || t.steps.length === 0) t.steps = [{ action: '', data: '', expected: '' }];
+      const cols = getVisibleStepColumns(state.config);
+      state.row = Math.max(0, Math.min(state.row, t.steps.length - 1));
+      state.col = Math.max(0, Math.min(state.col, cols.length - 1));
+    }
+
+    function setStatus(msg, tone = '') {
+      state.statusMsg = msg;
+      state.statusTone = tone;
+    }
+
+    function pushUndo() {
+      state.undoStack.push({
+        projectId: activeProject().id,
+        tests: deepClone(state.tests),
+        config: deepClone(state.config),
+        activeTestIdx: state.activeTestIdx,
+        row: state.row,
+        col: state.col
+      });
+      if (state.undoStack.length > 25) state.undoStack.shift();
+      state.redoStack = [];
+    }
+
+    function undo() {
+      if (state.undoStack.length === 0) {
+        setStatus('Nothing to undo', 'warn');
+        render(true);
+        return;
+      }
+      const snap = state.undoStack.pop();
+      const targetProjIdx = state.projects.findIndex(p => p.id === snap.projectId);
+      if (targetProjIdx >= 0) state.activeProjectIdx = targetProjIdx;
+      state.redoStack.push({
+        projectId: activeProject().id,
+        tests: deepClone(state.tests),
+        config: deepClone(state.config),
+        activeTestIdx: state.activeTestIdx,
+        row: state.row,
+        col: state.col
+      });
+      state.tests = snap.tests;
+      state.config = snap.config;
+      state.activeTestIdx = snap.activeTestIdx;
+      state.row = snap.row;
+      state.col = snap.col;
+      state.mode = 'nav';
+      state.modal = null;
+      clampCursor();
+      persistConfig();
+      persistSuite();
+      setStatus('Undid last change', 'ok');
+      render(true);
+    }
+
+    function redo() {
+      if (state.redoStack.length === 0) {
+        setStatus('Nothing to redo', 'warn');
+        render(true);
+        return;
+      }
+      const snap = state.redoStack.pop();
+      const targetProjIdx = state.projects.findIndex(p => p.id === snap.projectId);
+      if (targetProjIdx >= 0) state.activeProjectIdx = targetProjIdx;
+      state.undoStack.push({
+        projectId: activeProject().id,
+        tests: deepClone(state.tests),
+        config: deepClone(state.config),
+        activeTestIdx: state.activeTestIdx,
+        row: state.row,
+        col: state.col
+      });
+      state.tests = snap.tests;
+      state.config = snap.config;
+      state.activeTestIdx = snap.activeTestIdx;
+      state.row = snap.row;
+      state.col = snap.col;
+      state.mode = 'nav';
+      state.modal = null;
+      clampCursor();
+      persistConfig();
+      persistSuite();
+      setStatus('Redid change', 'ok');
+      render(true);
+    }
+
+    /* =========================================================================
+       TEST & STEP MUTATIONS
+       ========================================================================= */
+
+    function switchTest(idx) {
+      if (idx < 0 || idx >= state.tests.length) return;
+      state.activeTestIdx = idx;
+      state.row = 0;
+      state.mode = 'nav';
+      clampCursor();
+      setStatus(`Active test: ${activeTest().id}`);
+      render(true);
+    }
+
+    function createNewTest() {
+      pushUndo();
+      let maxNum = 0;
+      state.tests.forEach(t => {
+        const m = /^TC-(\d+)$/i.exec(t.id || '');
+        if (m) maxNum = Math.max(maxNum, Number(m[1]));
+      });
+      const nextNum = Math.max(state.tests.length + 1, maxNum + 1);
+      const id = 'TC-' + String(nextNum).padStart(2, '0');
+      state.tests.push({
+        id,
+        summary: 'New test case',
+        priority: state.config.defaultPriority || '2',
+        labels: [],
+        components: [],
+        requirement: '',
+        steps: [{ action: '', data: '', expected: '' }]
+      });
+      state.activeTestIdx = state.tests.length - 1;
+      state.row = 0;
+      state.col = 0;
+      state.mode = 'summary';
+      state.metaDraft = 'New test case';
+      persistSuite();
+      setStatus(`Created ${id} — enter Test Summary and press Enter`, 'ok');
+      render(true);
+    }
+
+    function duplicateTest() {
+      const t = activeTest();
+      pushUndo();
+      const copy = deepClone(t);
+      const id = 'TC-' + String(state.tests.length + 1).padStart(2, '0');
+      copy.id = id;
+      copy.summary = t.summary + ' (Copy)';
+      state.tests.splice(state.activeTestIdx + 1, 0, copy);
+      state.activeTestIdx += 1;
+      state.row = 0;
+      persistSuite();
+      setStatus(`Duplicated into ${id}`, 'ok');
+      render(true);
+    }
+
+    function deleteCurrentTest() {
+      if (state.tests.length <= 1) {
+        setStatus('Suite must keep at least 1 test case', 'warn');
+        render(true);
+        return;
+      }
+      pushUndo();
+      const removed = activeTest().id;
+      state.tests.splice(state.activeTestIdx, 1);
+      clampCursor();
+      persistSuite();
+      setStatus(`Deleted ${removed}`, 'warn');
+      render(true);
+    }
+
+    function setPriorityValue(val) {
+      const t = activeTest();
+      const found = (state.config.priorities || []).find(p => String(p.value) === String(val));
+      if (!found) {
+        setStatus(`Priority "${val}" not in Central Config`, 'warn');
+        render(true);
+        return;
+      }
+      if (t.priority === found.value) {
+        setStatus(`${t.id} priority is already ${found.label}`);
+        render(true);
+        return;
+      }
+      pushUndo();
+      t.priority = found.value;
+      persistSuite();
+      setStatus(`${t.id} priority set to ${found.label}`, 'ok');
+      render(true);
+    }
+
+    function cyclePriority() {
+      const t = activeTest();
+      const list = state.config.priorities || [];
+      if (list.length === 0) return;
+      const idx = list.findIndex(p => p.value === t.priority);
+      const next = list[(idx + 1) % list.length];
+      setPriorityValue(next.value);
+    }
+
+    function startMetaEdit(field) {
+      const t = activeTest();
+      state.mode = field; // 'summary' | 'requirement'
+      state.metaDraft = t[field] || '';
+      setStatus(`Editing ${field === 'summary' ? 'Test Summary' : 'Requirement key'}`);
+      render(true);
+    }
+
+    function commitMetaEdit() {
+      const t = activeTest();
+      const field = state.mode;
+      const inp = document.getElementById('meta-inline-input');
+      const val = (inp ? inp.value : state.metaDraft).trim();
+      if (field === 'summary') {
+        const nextVal = val || 'Untitled test';
+        if (nextVal !== t.summary) {
+          pushUndo();
+          t.summary = nextVal;
+          persistSuite();
+        }
+        setStatus(`Saved ${t.id} summary`, 'ok');
+      } else if (field === 'requirement') {
+        if (val !== (t.requirement || '')) {
+          pushUndo();
+          t.requirement = val;
+          persistSuite();
+        }
+        setStatus(`Saved ${t.id} requirement`, 'ok');
+      }
+      state.mode = 'nav';
+      render(true);
+    }
+
+    function startCellEdit() {
+      const t = activeTest();
+      const cols = getVisibleStepColumns(state.config);
+      const colObj = cols[state.col];
+      state.editDraft = t.steps[state.row][colObj.key] || '';
+      state.mode = 'edit';
+      setStatus(`Editing Step ${state.row + 1} · ${colObj.label}`);
+      render(true);
+    }
+
+    function commitCellEdit(nextAction) {
+      const t = activeTest();
+      const cols = getVisibleStepColumns(state.config);
+      const colObj = cols[state.col];
+      const inp = document.getElementById('cell-textarea');
+      const nextVal = inp ? inp.value : state.editDraft;
+      const prevVal = t.steps[state.row][colObj.key] || '';
+
+      if (nextVal !== prevVal) {
+        pushUndo();
+        t.steps[state.row][colObj.key] = nextVal;
+      }
+
+      if (nextAction === 'tabNext') {
+        if (state.col + 1 < cols.length) {
+          state.col += 1;
+        } else if (state.row + 1 < t.steps.length) {
+          state.row += 1;
+          state.col = 0;
+        } else {
+          if (nextVal === prevVal) pushUndo();
+          t.steps.push({ action: '', data: '', expected: '' });
+          state.row = t.steps.length - 1;
+          state.col = 0;
+        }
+        state.editDraft = t.steps[state.row][cols[state.col].key] || '';
+        state.mode = 'edit';
+        persistSuite();
+        setStatus(`Editing Step ${state.row + 1} · ${cols[state.col].label}`);
+        render(true);
+        return;
+      }
+
+      if (nextAction === 'tabPrev') {
+        if (state.col > 0) {
+          state.col -= 1;
+        } else if (state.row > 0) {
+          state.row -= 1;
+          state.col = cols.length - 1;
+        }
+        state.editDraft = t.steps[state.row][cols[state.col].key] || '';
+        state.mode = 'edit';
+        persistSuite();
+        setStatus(`Editing Step ${state.row + 1} · ${cols[state.col].label}`);
+        render(true);
+        return;
+      }
+
+      if (nextAction === 'newStep') {
+        const insertAt = state.row + 1;
+        if (nextVal === prevVal) pushUndo();
+        t.steps.splice(insertAt, 0, { action: '', data: '', expected: '' });
+        state.row = insertAt;
+        state.col = 0;
+        state.editDraft = '';
+        state.mode = 'edit';
+        persistSuite();
+        setStatus(`Inserted Step ${insertAt + 1} (editing)`, 'ok');
+        render(true);
+        return;
+      }
+
+      if (nextAction === 'enter' && state.row + 1 < t.steps.length) {
+        state.row += 1;
+      }
+      state.mode = 'nav';
+      persistSuite();
+      setStatus(`Saved ${colObj.label}`, 'ok');
+      render(true);
+    }
+
+    function insertStepBelow(enterEdit = true) {
+      const t = activeTest();
+      pushUndo();
+      const insertAt = state.row + 1;
+      t.steps.splice(insertAt, 0, { action: '', data: '', expected: '' });
+      state.row = insertAt;
+      state.col = 0;
+      persistSuite();
+      if (enterEdit) {
+        state.editDraft = '';
+        state.mode = 'edit';
+        setStatus(`Added Step ${insertAt + 1} (editing)`, 'ok');
+      } else {
+        state.mode = 'nav';
+        setStatus(`Added Step ${insertAt + 1}`, 'ok');
+      }
+      render(true);
+    }
+
+    function duplicateStep() {
+      const t = activeTest();
+      pushUndo();
+      const copy = deepClone(t.steps[state.row]);
+      const insertAt = state.row + 1;
+      t.steps.splice(insertAt, 0, copy);
+      state.row = insertAt;
+      state.mode = 'nav';
+      persistSuite();
+      setStatus(`Duplicated into Step ${insertAt + 1}`, 'ok');
+      render(true);
+    }
+
+    function deleteStep() {
+      const t = activeTest();
+      if (t.steps.length <= 1) {
+        setStatus('Each test must have at least 1 step', 'warn');
+        render(true);
+        return;
+      }
+      pushUndo();
+      const num = state.row + 1;
+      t.steps.splice(state.row, 1);
+      clampCursor();
+      persistSuite();
+      setStatus(`Deleted Step ${num}`, 'warn');
+      render(true);
+    }
+
+    function moveStep(delta) {
+      const t = activeTest();
+      const target = state.row + delta;
+      if (target < 0 || target >= t.steps.length) {
+        setStatus(delta < 0 ? 'Already on Step 1' : 'Already on last step', 'warn');
+        render(true);
+        return;
+      }
+      pushUndo();
+      const tmp = t.steps[state.row];
+      t.steps[state.row] = t.steps[target];
+      t.steps[target] = tmp;
+      state.row = target;
+      persistSuite();
+      setStatus(`Moved step to position ${target + 1}`, 'ok');
+      render(true);
+    }
+
+    function moveColumn(delta) {
+      const visibleCols = getVisibleStepColumns(state.config);
+      const target = state.col + delta;
+      if (target < 0 || target >= visibleCols.length) {
+        setStatus(delta < 0 ? 'Column already leftmost' : 'Column already rightmost', 'warn');
+        render(true);
+        return;
+      }
+      pushUndo();
+      const movedLabel = visibleCols[state.col].label;
+      const colA = visibleCols[state.col].key;
+      const colB = visibleCols[target].key;
+      const order = [...state.config.columnOrder];
+      const idxA = order.indexOf(colA);
+      const idxB = order.indexOf(colB);
+      order[idxA] = colB;
+      order[idxB] = colA;
+      state.config.columnOrder = order;
+      state.col = target;
+      persistConfig();
+      setStatus(`Moved column "${movedLabel}" ${delta < 0 ? 'left' : 'right'}`, 'ok');
+      render(true);
+    }
+
+    function toggleStepColumn(colKey) {
+      const hidden = new Set(state.config.hiddenColumns || []);
+      const visible = getVisibleStepColumns(state.config);
+      if (!hidden.has(colKey) && visible.length <= 1) {
+        setStatus('At least 1 step column must stay visible', 'warn');
+        render(true);
+        return;
+      }
+      pushUndo();
+      if (hidden.has(colKey)) hidden.delete(colKey);
+      else hidden.add(colKey);
+      state.config.hiddenColumns = [...hidden];
+      clampCursor();
+      persistConfig();
+      setStatus(`${hidden.has(colKey) ? 'Hidden' : 'Shown'} column "${state.config.headers[colKey] || colKey}"`, 'ok');
+      render(true);
+    }
+
+    /* =========================================================================
+       MODALS: PICKER (LABELS / COMPONENTS), PALETTE, CENTRAL CONFIG, IMPORT, EXPORT
+       ========================================================================= */
+
+    function openModal(modalName) {
+      state.mode = 'modal';
+      state.modal = modalName;
+      state.exportCopied = false;
+      render(true);
+    }
+
+    function closeModal(statusText) {
+      state.mode = 'nav';
+      state.modal = null;
+      if (statusText) setStatus(statusText);
+      render(true);
+    }
+
+    function openPicker(kind) {
+      const t = activeTest();
+      state.picker = {
+        kind, // 'labels' | 'components'
+        selected: [...(t[kind] || [])],
+        filter: '',
+        idx: 0
+      };
+      setStatus(`Select ${kind} (Space toggle, Enter apply, Esc cancel)`);
+      openModal(kind);
+    }
+
+    function getPickerOptions() {
+      const kind = state.picker.kind;
+      const central = kind === 'labels' ? state.config.labels : state.config.components;
+      const combined = dedupeStrings([...central, ...state.picker.selected]);
+      const q = state.picker.filter.trim().toLowerCase();
+      if (!q) return combined;
+      return combined.filter(opt => opt.toLowerCase().includes(q));
+    }
+
+    function togglePickerOption(val) {
+      const idx = state.picker.selected.indexOf(val);
+      if (idx >= 0) state.picker.selected.splice(idx, 1);
+      else state.picker.selected.push(val);
+      renderPickerListOnly();
+    }
+
+    function addCustomPickerValue() {
+      const allow = state.picker.kind === 'labels'
+        ? state.config.allowCustomLabels
+        : state.config.allowCustomComponents;
+      const val = state.picker.filter.trim();
+      if (!allow || !val) return;
+      if (!state.picker.selected.includes(val)) {
+        state.picker.selected.push(val);
+      }
+      state.picker.filter = '';
+      state.picker.idx = 0;
+      render(true);
+    }
+
+    function applyPickerSelection() {
+      const t = activeTest();
+      const kind = state.picker.kind;
+      pushUndo();
+      t[kind] = dedupeStrings(state.picker.selected);
+      persistSuite();
+      closeModal(`Updated ${t.id} ${kind} (${t[kind].length} selected)`);
+    }
+
+    function openPalette() {
+      state.paletteQuery = '';
+      state.paletteIdx = 0;
+      setStatus('Command palette open');
+      openModal('palette');
+    }
+
+    function getCommands() {
+      const hidden = new Set(state.config.hiddenColumns || []);
+      return [
+        { label: 'Projects & Local Folder Manager', key: 'w', run: () => openProjectsModal() },
+        { label: state.dirHandle ? 'Reconnect / Change Local Folder' : 'Connect Local Folder (https / localhost)', key: 'o', run: () => { closeModal(); connectLocalFolder(true); } },
+        ...(state.dirHandle ? [{ label: 'Rescan Connected Local Folder', key: 'f', run: () => { closeModal(); rescanConnectedFolder(); } }] : []),
+        { label: state.dirHandle ? 'Save Now to Local Folder' : 'Download Active Project (.json)', key: 'Ctrl+S', run: () => { closeModal(); if (state.dirHandle) flushFolderSave(); else downloadActiveProjectJson(); } },
+        { label: 'Pick Labels for active test', key: 'l', run: () => openPicker('labels') },
+        { label: 'Pick Components for active test', key: 'c', run: () => openPicker('components') },
+        { label: 'Set Priority 1 (High)', key: '1', run: () => { closeModal(); setPriorityValue('1'); } },
+        { label: 'Set Priority 2 (Medium)', key: '2', run: () => { closeModal(); setPriorityValue('2'); } },
+        { label: 'Set Priority 3 (Low)', key: '3', run: () => { closeModal(); setPriorityValue('3'); } },
+        { label: 'Open Central Config (Labels, Components, Priorities)', key: 'g', run: () => openConfigModal() },
+        { label: 'Import Excel (.xlsx) / CSV / Paste from Excel', key: 'i', run: () => openImportModal() },
+        { label: 'Export & Validate Xray Cloud CSV', key: 'e', run: () => openModal('export') },
+        { label: 'Add step below current row', key: 'n', run: () => { closeModal(); insertStepBelow(true); } },
+        { label: 'Duplicate current step', key: 'd', run: () => { closeModal(); duplicateStep(); } },
+        { label: 'Delete current step', key: 'Del', run: () => { closeModal(); deleteStep(); } },
+        { label: 'Move step up', key: 'Alt+↑', run: () => { closeModal(); moveStep(-1); } },
+        { label: 'Move step down', key: 'Alt+↓', run: () => { closeModal(); moveStep(1); } },
+        { label: 'Move active column left', key: 'Alt+←', run: () => { closeModal(); moveColumn(-1); } },
+        { label: 'Move active column right', key: 'Alt+→', run: () => { closeModal(); moveColumn(1); } },
+        { label: (hidden.has('data') ? 'Show' : 'Hide') + ' column: Data', key: 'Cmd', run: () => { closeModal(); toggleStepColumn('data'); } },
+        { label: 'New test case', key: 't', run: () => { closeModal(); createNewTest(); } },
+        { label: 'Duplicate active test case', key: 'Shift+T', run: () => { closeModal(); duplicateTest(); } },
+        { label: 'Delete active test case', key: 'Cmd', run: () => { closeModal(); deleteCurrentTest(); } },
+        { label: 'Edit Test Summary', key: 's', run: () => { closeModal(); startMetaEdit('summary'); } },
+        { label: 'Edit Requirement / Story Key', key: 'r', run: () => { closeModal(); startMetaEdit('requirement'); } },
+        { label: 'Toggle Light / Dark Theme', key: 'Cmd', run: () => { state.theme = state.theme === 'light' ? 'dark' : 'light'; applyTheme(); closeModal('Switched theme to ' + state.theme); } },
+        { label: 'Undo last change', key: 'u / Ctrl+Z', run: () => undo() },
+        { label: 'Redo change', key: 'Ctrl+Y', run: () => redo() },
+        { label: 'Keyboard Shortcuts Reference', key: '?', run: () => openModal('help') }
+      ];
+    }
+
+    function getFilteredCommands() {
+      const q = state.paletteQuery.trim().toLowerCase();
+      const cmds = getCommands();
+      if (!q) return cmds;
+      return cmds.filter(c => c.label.toLowerCase().includes(q) || c.key.toLowerCase().includes(q));
+    }
+
+    function openConfigModal() {
+      state.configDraft = deepClone(state.config);
+      setStatus('Central Config open');
+      openModal('config');
+    }
+
+    function addConfigOption(field) {
+      syncConfigDraftFromDom();
+      const inputId = field === 'labels' ? 'cfg-add-label' : 'cfg-add-comp';
+      const inp = document.getElementById(inputId);
+      if (!inp) return;
+      const val = inp.value.trim();
+      if (!val) return;
+      state.configDraft[field] = dedupeStrings([...state.configDraft[field], val]);
+      inp.value = '';
+      render(false);
+      const nextInp = document.getElementById(inputId);
+      if (nextInp) nextInp.focus();
+    }
+
+    function removeConfigOption(field, val) {
+      syncConfigDraftFromDom();
+      state.configDraft[field] = state.configDraft[field].filter(x => x !== val);
+      render(false);
+    }
+
+    function syncConfigDraftFromDom() {
+      if (!state.configDraft) return;
+      const d = state.configDraft;
+      const getVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value : null;
+      };
+      const getChecked = (id) => {
+        const el = document.getElementById(id);
+        return el ? !!el.checked : false;
+      };
+
+      d.allowCustomLabels = getChecked('cfg-custom-labels');
+      d.allowCustomComponents = getChecked('cfg-custom-comps');
+      d.includeUtf8Bom = getChecked('cfg-utf8-bom');
+      d.autoWriteCsvToFolder = getChecked('cfg-auto-csv');
+
+      const csvDel = getVal('cfg-csv-delim');
+      if (csvDel === ',' || csvDel === ';') d.csvDelimiter = csvDel;
+      const listDel = getVal('cfg-list-delim');
+      if (listDel !== null && listDel.trim()) d.listDelimiter = listDel.trim();
+      const defPrio = getVal('cfg-default-prio');
+      if (defPrio) d.defaultPriority = defPrio;
+
+      (d.priorities || []).forEach((p, idx) => {
+        const lbl = getVal(`cfg-prio-label-${idx}`);
+        if (lbl !== null && lbl.trim()) p.label = lbl.trim();
+      });
+
+      Object.keys(d.headers).forEach(k => {
+        const hv = getVal(`cfg-hdr-${k}`);
+        if (hv !== null && hv.trim()) d.headers[k] = hv.trim();
+      });
+    }
+
+    function saveConfigDraft() {
+      syncConfigDraftFromDom();
+      pushUndo();
+      state.config = normalizeConfig(state.configDraft, BAKED_CONFIG);
+      persistConfig(true);
+      if (state.dirHandle) scheduleFolderSave(state.activeProjectIdx);
+      clampCursor();
+      closeModal(state.dirHandle ? 'Saved Central Config to browser & local folder' : 'Saved Central Config locally');
+    }
+
+    function downloadConfiguredTeamHtml() {
+      syncConfigDraftFromDom();
+      const nextCfg = normalizeConfig(state.configDraft, BAKED_CONFIG);
+      try {
+        const htmlOut = buildConfiguredHtml(PRISTINE_HTML, nextCfg);
+        state.config = nextCfg;
+        state.config.configVersion = nextCfg.configVersion + 1;
+        state.configDraft = deepClone(state.config);
+        persistConfig();
+        triggerDownload('xray-test-studio-configured.html', htmlOut, 'text/html;charset=utf-8');
+        setStatus('Downloaded pre-configured team HTML (v' + state.config.configVersion + ')', 'ok');
+        render(false);
+      } catch (err) {
+        setStatus('Failed to build team HTML: ' + err.message, 'err');
+        render(false);
+      }
+    }
+
+    function exportConfigJson() {
+      syncConfigDraftFromDom();
+      triggerDownload('xray-central-config.json', JSON.stringify(state.configDraft, null, 2), 'application/json');
+      setStatus('Exported central config JSON', 'ok');
+      render(false);
+    }
+
+    function resetToBakedConfig() {
+      pushUndo();
+      state.config = deepClone(BAKED_CONFIG);
+      state.configDraft = deepClone(BAKED_CONFIG);
+      try { localStorage.removeItem(STORAGE_CONFIG_KEY); } catch (_e) {}
+      setStatus('Reset to baked-in Central Config', 'ok');
+      render(false);
+    }
+
+    function handleConfigJsonUpload(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(String(reader.result || '{}'));
+          state.configDraft = normalizeConfig(parsed, BAKED_CONFIG);
+          setStatus('Loaded config from ' + file.name + ' (click Apply to save)', 'ok');
+          render(false);
+        } catch (err) {
+          setStatus('Invalid config JSON: ' + err.message, 'err');
+          render(false);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    /* --- Import Modal Logic --- */
+
+    function openImportModal() {
+      state.importState = {
+        sourceName: '',
+        sheets: [],
+        sheetIdx: 0,
+        rows: [],
+        hasHeaderRow: true,
+        mapping: null,
+        error: ''
+      };
+      setStatus('Import Excel, CSV, JSON, or paste cells');
+      openModal('import');
+    }
+
+    async function handleImportFile(file) {
+      if (!file) return;
+      state.importState.error = '';
+      state.importState.sourceName = file.name;
+      const lower = file.name.toLowerCase();
+
+      try {
+        if (lower.endsWith('.json')) {
+          const text = await file.text();
+          const parsedProj = parseProjectFile(text, file.name);
+          const parsed = parsedProj ? parsedProj.tests : JSON.parse(text);
+          if (Array.isArray(parsed)) {
+            pushUndo();
+            state.tests = parsed;
+            state.activeTestIdx = 0;
+            state.row = 0;
+            state.col = 0;
+            clampCursor();
+            persistSuite();
+            closeModal(`Loaded ${parsed.length} test(s) from ${file.name} into ${activeProject().name}`);
+            return;
+          }
+          throw new Error('JSON file must be a project file or an array of test cases.');
+        }
+
+        if (lower.endsWith('.xlsx')) {
+          const buf = await file.arrayBuffer();
+          const sheets = await parseXlsxSheets(buf);
+          if (sheets.length === 0) throw new Error('No worksheets found inside .xlsx file.');
+          state.importState.sheets = sheets;
+          state.importState.sheetIdx = 0;
+          loadImportRows(sheets[0].rows);
+          render(false);
+          return;
+        }
+
+        const buf = await file.arrayBuffer();
+        const text = decodeTextBytes(buf);
+        const parsed = parseCsvText(text);
+        state.importState.sheets = [{ name: 'CSV', rows: parsed.rows }];
+        state.importState.sheetIdx = 0;
+        loadImportRows(parsed.rows);
+        render(false);
+      } catch (err) {
+        state.importState.error = err.message || 'Could not parse file.';
+        render(false);
+      }
+    }
+
+    function handlePastedImportText(text) {
+      const clean = String(text || '').trim();
+      if (!clean) return;
+      state.importState.error = '';
+      state.importState.sourceName = 'Pasted Excel / CSV cells';
+      const parsed = parseCsvText(clean);
+      state.importState.sheets = [{ name: 'Clipboard', rows: parsed.rows }];
+      state.importState.sheetIdx = 0;
+      loadImportRows(parsed.rows);
+      render(false);
+    }
+
+    function loadImportRows(rows) {
+      state.importState.rows = rows || [];
+      if (rows.length > 0) {
+        state.importState.mapping = autoMapHeaders(rows[0]);
+      } else {
+        state.importState.mapping = null;
+        state.importState.error = 'No non-empty rows found.';
+      }
+    }
+
+    function selectImportSheet(idx) {
+      const sheet = state.importState.sheets[idx];
+      if (!sheet) return;
+      state.importState.sheetIdx = idx;
+      loadImportRows(sheet.rows);
+      render(false);
+    }
+
+    function updateImportMapping(field, colIdxStr) {
+      if (!state.importState.mapping) return;
+      state.importState.mapping[field] = Number(colIdxStr);
+    }
+
+    function executeImport(replaceSuite) {
+      const imp = state.importState;
+      if (!imp.rows || imp.rows.length === 0 || !imp.mapping) return;
+      const imported = normalizeImportedRows(imp.rows, imp.mapping, imp.hasHeaderRow, state.config);
+      pushUndo();
+      if (replaceSuite) {
+        state.tests = imported;
+        state.activeTestIdx = 0;
+      } else {
+        const existingIds = new Set(state.tests.map(t => t.id));
+        imported.forEach(t => {
+          while (existingIds.has(t.id)) {
+            t.id = 'TC-' + String(state.tests.length + 1).padStart(2, '0');
+          }
+          existingIds.add(t.id);
+          state.tests.push(t);
+        });
+        state.activeTestIdx = state.tests.length - imported.length;
+      }
+      state.row = 0;
+      state.col = 0;
+      clampCursor();
+      persistSuite();
+      closeModal(`Imported ${imported.length} test case(s) from ${imp.sourceName}`);
+    }
+
+    /* --- Export & Quick-Fix Actions --- */
+
+    function triggerDownload(filename, content, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function downloadXrayCsv() {
+      const csv = buildXrayCsv(state.tests, state.config);
+      const payload = state.config.includeUtf8Bom ? ('\uFEFF' + csv) : csv;
+      const csvName = activeProject().fileName.replace(/\.json$/i, '') + '.xray.csv';
+      triggerDownload(csvName, payload, 'text/csv;charset=utf-8');
+      setStatus(`Downloaded ${csvName}`, 'ok');
+      render(false);
+    }
+
+    function downloadSuiteJson() {
+      downloadActiveProjectJson();
+    }
+
+    function copyXrayCsv() {
+      const csv = buildXrayCsv(state.tests, state.config);
+      const done = () => {
+        state.exportCopied = true;
+        setStatus('Copied Xray Cloud CSV to clipboard', 'ok');
+        render(false);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(csv).then(done).catch(() => fallbackCopy(csv, done));
+      } else {
+        fallbackCopy(csv, done);
+      }
+    }
+
+    function fallbackCopy(text, onDone) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        onDone();
+      } finally {
+        document.body.removeChild(ta);
+      }
+    }
+
+    function fixUnknownTagsToConfig() {
+      const issues = validateSuite(state.tests, state.config);
+      const extraLabels = [];
+      const extraComps = [];
+      issues.forEach(iss => {
+        if (iss.kind === 'labels') extraLabels.push(...iss.values);
+        if (iss.kind === 'components') extraComps.push(...iss.values);
+      });
+      if (extraLabels.length === 0 && extraComps.length === 0) return;
+      pushUndo();
+      state.config.labels = dedupeStrings([...state.config.labels, ...extraLabels]);
+      state.config.components = dedupeStrings([...state.config.components, ...extraComps]);
+      persistConfig();
+      setStatus('Added imported tags to Central Config', 'ok');
+      render(false);
+    }
+
+    function stripUnknownTagsFromTests() {
+      const allowedL = new Set(state.config.labels || []);
+      const allowedC = new Set(state.config.components || []);
+      pushUndo();
+      state.tests.forEach(t => {
+        if (!state.config.allowCustomLabels) t.labels = (t.labels || []).filter(l => allowedL.has(l));
+        if (!state.config.allowCustomComponents) t.components = (t.components || []).filter(c => allowedC.has(c));
+      });
+      persistSuite();
+      setStatus('Stripped unconfigured Labels/Components from tests', 'ok');
+      render(false);
+    }
+
+    /* =========================================================================
+       RENDERING
+       ========================================================================= */
+
+    function getPriorityLabel(val) {
+      const found = (state.config.priorities || []).find(p => String(p.value) === String(val));
+      return found ? found.label : String(val || '?');
+    }
+
+    function prioClass(val) {
+      if (val === '1') return 'prio-1';
+      if (val === '2') return 'prio-2';
+      if (val === '3') return 'prio-3';
+      return 'prio-other';
+    }
+
+    function renderSidebar() {
+      const allowedL = new Set(state.config.labels || []);
+      const allowedC = new Set(state.config.components || []);
+      const issuesByTest = new Map();
+      validateSuite(state.tests, state.config).forEach(iss => {
+        const prev = issuesByTest.get(iss.testIdx);
+        if (!prev || iss.severity === 'error') issuesByTest.set(iss.testIdx, iss.severity);
+      });
+
+      const cards = state.tests.map((t, idx) => {
+        const active = idx === state.activeTestIdx;
+        const sev = issuesByTest.get(idx);
+        const chips = [
+          ...(t.labels || []).slice(0, 3).map(l =>
+            `<span class="chip label ${!state.config.allowCustomLabels && !allowedL.has(l) ? 'invalid' : ''}">${escHtml(l)}</span>`
+          ),
+          ...(t.components || []).slice(0, 2).map(c =>
+            `<span class="chip comp ${!state.config.allowCustomComponents && !allowedC.has(c) ? 'invalid' : ''}">${escHtml(c)}</span>`
+          )
+        ].join('');
+
+        return `
+          <button
+            type="button"
+            tabindex="-1"
+            onclick="switchTest(${idx})"
+            class="test-card ${active ? 'active' : ''}"
+          >
+            <div class="test-card-top">
+              <span class="mono" style="font-weight:700">${escHtml(t.id)}</span>
+              <div style="display:flex;align-items:center;gap:5px">
+                ${sev ? `<span style="color:var(${sev === 'error' ? '--error' : '--warning'});font-weight:700">${sev === 'error' ? '●' : '▲'}</span>` : ''}
+                <span class="prio-badge ${prioClass(t.priority)}">P${escHtml(t.priority || '?')}</span>
+              </div>
+            </div>
+            <div class="truncate" style="font-weight:600">${escHtml(t.summary || '(No summary)')}</div>
+            <div class="chip-row">
+              ${chips || '<span class="faint" style="font-size:11px">No labels/components</span>'}
+            </div>
+          </button>
+        `;
+      }).join('');
+
+      return `
+        <aside class="sidebar" aria-label="Test Cases">
+          <div class="sidebar-head">
+            <span style="font-weight:700">Tests (${state.tests.length})</span>
+            <div style="display:flex;gap:4px">
+              <button type="button" tabindex="-1" onclick="createNewTest()" title="New Test Case (t)">+ Test <kbd>t</kbd></button>
+            </div>
+          </div>
+          <div class="test-list">${cards}</div>
+        </aside>
+      `;
+    }
+
+    function renderMetaPanel() {
+      const t = activeTest();
+      const allowedL = new Set(state.config.labels || []);
+      const allowedC = new Set(state.config.components || []);
+
+      const summaryNode = state.mode === 'summary'
+        ? `<input id="meta-inline-input" type="text" value="${escHtml(state.metaDraft)}" aria-label="Test Summary" style="min-width:280px;flex:1" />`
+        : `<span class="summary-title truncate" onclick="startMetaEdit('summary')" title="Click or press s to edit Summary">${escHtml(t.summary || '(Missing summary)')}</span>`;
+
+      const reqNode = state.mode === 'requirement'
+        ? `<input id="meta-inline-input" type="text" value="${escHtml(state.metaDraft)}" placeholder="KEY-123" aria-label="Requirement Key" class="mono" style="width:120px" />`
+        : `<span class="field-pill" onclick="startMetaEdit('requirement')" title="Click or press r to edit Requirement">
+             <span class="muted">Req:</span>
+             <span class="mono">${escHtml(t.requirement || 'None')}</span>
+             <kbd>r</kbd>
+           </span>`;
+
+      const labelChips = (t.labels || []).length > 0
+        ? t.labels.map(l => `<span class="chip label ${!state.config.allowCustomLabels && !allowedL.has(l) ? 'invalid' : ''}">${escHtml(l)}</span>`).join('')
+        : '<span class="faint">None</span>';
+
+      const compChips = (t.components || []).length > 0
+        ? t.components.map(c => `<span class="chip comp ${!state.config.allowCustomComponents && !allowedC.has(c) ? 'invalid' : ''}">${escHtml(c)}</span>`).join('')
+        : '<span class="faint">None</span>';
+
+      const prioBtns = (state.config.priorities || []).map(p => {
+        const active = String(t.priority) === String(p.value);
+        return `
+          <button
+            type="button"
+            tabindex="-1"
+            onclick="setPriorityValue('${escHtml(p.value)}')"
+            class="${active ? 'prio-badge ' + prioClass(p.value) : ''}"
+            style="padding:2px 7px;${active ? 'font-weight:700;' : 'opacity:0.7;'}"
+            title="Press ${escHtml(p.value)} to set ${escHtml(p.label)}"
+          >${escHtml(p.value)}</button>
+        `;
+      }).join('');
+
+      return `
+        <section class="meta-panel" aria-label="Test Case Metadata">
+          <div class="meta-row-top">
+            <div class="summary-box">
+              <span class="mono muted" style="font-weight:700">${escHtml(t.id)}</span>
+              ${summaryNode}
+              ${state.mode !== 'summary' ? '<kbd>s</kbd>' : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="muted">Priority:</span>
+              <div style="display:flex;gap:3px">${prioBtns}</div>
+              <span class="faint">(<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>)</span>
+            </div>
+          </div>
+
+          <div class="meta-row-fields">
+            <div class="field-pill" onclick="openPicker('labels')" title="Pick Labels (l)">
+              <span class="muted">Labels:</span>
+              <div class="chip-row">${labelChips}</div>
+              <kbd>l</kbd>
+            </div>
+            <div class="field-pill" onclick="openPicker('components')" title="Pick Components (c)">
+              <span class="muted">Components:</span>
+              <div class="chip-row">${compChips}</div>
+              <kbd>c</kbd>
+            </div>
+            ${reqNode}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderGrid() {
+      const t = activeTest();
+      const cols = getVisibleStepColumns(state.config);
+      const colTemplate = `46px repeat(${cols.length}, minmax(0, 1fr))`;
+
+      const headerRow = `
+        <div role="row" aria-rowindex="1" class="grid-row header" style="grid-template-columns:${colTemplate}">
+          <div role="columnheader" aria-colindex="1" class="grid-row-num">#</div>
+          ${cols.map((c, cIdx) => {
+            const active = cIdx === state.col;
+            return `
+              <div role="columnheader" aria-colindex="${cIdx + 2}" class="grid-col-header ${active ? 'active-col' : ''}">
+                <span class="truncate">${escHtml(c.label)}</span>
+                ${active ? `<span class="mono" style="color:var(--primary);font-size:11px" title="Alt+← / Alt+→ to rearrange column">Alt+←/→</span>` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      const bodyRows = t.steps.map((step, rIdx) => {
+        const isCurrentRow = rIdx === state.row;
+        const cells = cols.map((c, cIdx) => {
+          const isSelected = isCurrentRow && cIdx === state.col;
+          const isEditing = isSelected && state.mode === 'edit';
+          const val = step[c.key] || '';
+
+          if (isEditing) {
+            return `
+              <div role="gridcell" aria-rowindex="${rIdx + 2}" aria-colindex="${cIdx + 2}" aria-selected="true" class="grid-cell editing">
+                <textarea
+                  id="cell-textarea"
+                  rows="2"
+                  aria-label="Step ${rIdx + 1} ${escHtml(c.label)}"
+                >${escHtml(state.editDraft)}</textarea>
+              </div>
+            `;
+          }
+
+          return `
+            <div
+              id="cell-${rIdx}-${cIdx}"
+              role="gridcell"
+              tabindex="${isSelected ? '0' : '-1'}"
+              aria-rowindex="${rIdx + 2}"
+              aria-colindex="${cIdx + 2}"
+              aria-selected="${isSelected ? 'true' : 'false'}"
+              onclick="onCellClick(${rIdx}, ${cIdx})"
+              class="grid-cell ${isSelected ? 'selected' : ''} ${!val ? 'empty' : ''}"
+            >${val ? escHtml(val) : '(empty)'}</div>
+          `;
+        }).join('');
+
+        return `
+          <div role="row" aria-rowindex="${rIdx + 2}" class="grid-row ${isCurrentRow ? 'active-row' : ''}" style="grid-template-columns:${colTemplate}">
+            <div role="rowheader" aria-colindex="1" class="grid-row-num">${rIdx + 1}</div>
+            ${cells}
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="grid-wrap">
+          <div role="grid" aria-label="Test Steps for ${escHtml(t.id)}" class="grid-table">
+            ${headerRow}
+            ${bodyRows}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPickerModal() {
+      const kind = state.picker.kind;
+      const title = kind === 'labels' ? 'Pick Labels' : 'Pick Components';
+      const allowCustom = kind === 'labels' ? state.config.allowCustomLabels : state.config.allowCustomComponents;
+      const options = getPickerOptions();
+      if (options.length === 0) state.picker.idx = 0;
+      else state.picker.idx = Math.max(0, Math.min(state.picker.idx, options.length - 1));
+
+      const items = options.length === 0
+        ? `<div class="muted" style="padding:12px;text-align:center">No matching ${kind}${allowCustom ? ' — press Ctrl+Enter to add custom' : ' (manage options in Central Config [g])'}</div>`
+        : options.map((opt, idx) => {
+            const checked = state.picker.selected.includes(opt);
+            const hl = idx === state.picker.idx;
+            return `
+              <button
+                id="picker-opt-${idx}"
+                type="button"
+                tabindex="-1"
+                onclick="state.picker.idx=${idx};togglePickerOption('${escHtml(opt).replace(/'/g, "\\'")}')"
+                class="list-item ${hl ? 'highlighted' : ''}"
+              >
+                <span style="display:flex;align-items:center;gap:8px">
+                  <span class="mono" style="font-weight:700;color:var(${checked ? '--success' : '--text-faint'})">${checked ? '[✓]' : '[ ]'}</span>
+                  <span>${escHtml(opt)}</span>
+                </span>
+                ${hl ? '<kbd>Space</kbd>' : ''}
+              </button>
+            `;
+          }).join('');
+
+      return `
+        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="${title}">
+          <div class="modal-card narrow">
+            <div class="modal-head">
+              <span class="modal-title">${title} for ${escHtml(activeTest().id)}</span>
+              <span class="muted">${state.picker.selected.length} selected</span>
+            </div>
+            <div class="modal-body">
+              <input
+                id="picker-filter"
+                type="search"
+                value="${escHtml(state.picker.filter)}"
+                placeholder="Type to filter ${kind}..."
+                oninput="state.picker.filter=this.value;state.picker.idx=0;renderPickerListOnly()"
+              />
+              <div id="picker-list" style="display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto">
+                ${items}
+              </div>
+              ${allowCustom && state.picker.filter.trim()
+                ? `<button type="button" onclick="addCustomPickerValue()">+ Add custom "${escHtml(state.picker.filter.trim())}" <kbd>Ctrl+Enter</kbd></button>`
+                : ''}
+            </div>
+            <div class="modal-foot">
+              <div class="hints">
+                <span><kbd>↑</kbd><kbd>↓</kbd> Move</span>
+                <span><kbd>Space</kbd> Toggle</span>
+                <span><kbd>Enter</kbd> Apply</span>
+                <span><kbd>Esc</kbd> Cancel</span>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button type="button" onclick="closeModal('Cancelled ${kind}')">Cancel</button>
+                <button type="button" class="primary" onclick="applyPickerSelection()">Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPickerListOnly() {
+      const listEl = document.getElementById('picker-list');
+      if (!listEl) return;
+      const options = getPickerOptions();
+      if (options.length === 0) state.picker.idx = 0;
+      else state.picker.idx = Math.max(0, Math.min(state.picker.idx, options.length - 1));
+      const kind = state.picker.kind;
+      const allowCustom = kind === 'labels' ? state.config.allowCustomLabels : state.config.allowCustomComponents;
+      listEl.innerHTML = options.length === 0
+        ? `<div class="muted" style="padding:12px;text-align:center">No matching ${kind}${allowCustom ? ' — press Ctrl+Enter to add custom' : ' (manage in Central Config [g])'}</div>`
+        : options.map((opt, idx) => {
+            const checked = state.picker.selected.includes(opt);
+            const hl = idx === state.picker.idx;
+            return `
+              <button
+                id="picker-opt-${idx}"
+                type="button"
+                tabindex="-1"
+                onclick="state.picker.idx=${idx};togglePickerOption('${escHtml(opt).replace(/'/g, "\\'")}')"
+                class="list-item ${hl ? 'highlighted' : ''}"
+              >
+                <span style="display:flex;align-items:center;gap:8px">
+                  <span class="mono" style="font-weight:700;color:var(${checked ? '--success' : '--text-faint'})">${checked ? '[✓]' : '[ ]'}</span>
+                  <span>${escHtml(opt)}</span>
+                </span>
+                ${hl ? '<kbd>Space</kbd>' : ''}
+              </button>
+            `;
+          }).join('');
+      const activeItem = document.getElementById(`picker-opt-${state.picker.idx}`);
+      if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+    }
+
+    function renderPaletteModal() {
+      const cmds = getFilteredCommands();
+      state.paletteIdx = cmds.length === 0 ? 0 : Math.max(0, Math.min(state.paletteIdx, cmds.length - 1));
+
+      return `
+        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Command Palette">
+          <div class="modal-card narrow">
+            <div class="modal-head">
+              <span class="modal-title">Command Palette</span>
+              <span class="muted"><kbd>↑</kbd><kbd>↓</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd></span>
+            </div>
+            <div class="modal-body">
+              <input
+                id="palette-input"
+                type="search"
+                value="${escHtml(state.paletteQuery)}"
+                placeholder="Type any command (labels, components, priority, config, import, csv)..."
+                oninput="state.paletteQuery=this.value;state.paletteIdx=0;renderPaletteListOnly()"
+              />
+              <div id="palette-list" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto">
+                ${cmds.map((c, idx) => `
+                  <button
+                    id="pal-item-${idx}"
+                    type="button"
+                    tabindex="-1"
+                    onclick="getFilteredCommands()[${idx}].run()"
+                    class="list-item ${idx === state.paletteIdx ? 'highlighted' : ''}"
+                  >
+                    <span>${escHtml(c.label)}</span>
+                    <kbd>${escHtml(c.key)}</kbd>
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPaletteListOnly() {
+      const el = document.getElementById('palette-list');
+      if (!el) return;
+      const cmds = getFilteredCommands();
+      state.paletteIdx = cmds.length === 0 ? 0 : Math.max(0, Math.min(state.paletteIdx, cmds.length - 1));
+      el.innerHTML = cmds.length === 0
+        ? `<div class="muted" style="padding:12px;text-align:center">No matching commands</div>`
+        : cmds.map((c, idx) => `
+            <button
+              id="pal-item-${idx}"
+              type="button"
+              tabindex="-1"
+              onclick="getFilteredCommands()[${idx}].run()"
+              class="list-item ${idx === state.paletteIdx ? 'highlighted' : ''}"
+            >
+              <span>${escHtml(c.label)}</span>
+              <kbd>${escHtml(c.key)}</kbd>
+            </button>
+          `).join('');
+    }
+
+    function renderConfigModal() {
+      const d = state.configDraft || deepClone(state.config);
+      const chipEditor = (field, title, addId) => `
+        <div class="section-box">
+          <div style="font-weight:700">${title} (${d[field].length})</div>
+          <div style="display:flex;gap:6px">
+            <input id="${addId}" type="text" placeholder="Add ${field === 'labels' ? 'label' : 'component'}..." style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addConfigOption('${field}');}" />
+            <button type="button" onclick="addConfigOption('${field}')">Add</button>
+          </div>
+          <div class="chip-row" style="max-height:110px;overflow-y:auto">
+            ${d[field].map(item => `
+              <span class="chip ${field === 'labels' ? 'label' : 'comp'}">
+                ${escHtml(item)}
+                <button type="button" onclick="removeConfigOption('${field}','${escHtml(item).replace(/'/g, "\\'")}')" style="padding:0 3px;border:none;background:transparent;color:inherit" title="Remove">×</button>
+              </span>
+            `).join('')}
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input id="${field === 'labels' ? 'cfg-custom-labels' : 'cfg-custom-comps'}" type="checkbox" ${d[field === 'labels' ? 'allowCustomLabels' : 'allowCustomComponents'] ? 'checked' : ''} />
+            <span>Allow testers to add custom ${field}</span>
+          </label>
+        </div>
+      `;
+
+      return `
+        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Central Configuration">
+          <div class="modal-card wide">
+            <div class="modal-head">
+              <span class="modal-title">Central Configuration (v${d.configVersion}) — Team Preset Manager</span>
+              <button type="button" onclick="closeModal('Closed Central Config')">Close <kbd>Esc</kbd></button>
+            </div>
+            <div class="modal-body">
+              <div class="banner">
+                <span>Configure allowed <strong>Labels</strong>, <strong>Components</strong>, <strong>Priorities (1, 2, 3)</strong>, and CSV headers here. Click <strong>Save Pre-Configured Team HTML</strong> to distribute one ready-to-use file to your team.</span>
+              </div>
+
+              <div class="two-col">
+                ${chipEditor('labels', 'Allowed Labels', 'cfg-add-label')}
+                ${chipEditor('components', 'Allowed Components', 'cfg-add-comp')}
+              </div>
+
+              <div class="two-col">
+                <div class="section-box">
+                  <div style="font-weight:700">Priorities &amp; Defaults</div>
+                  ${(d.priorities || []).map((p, idx) => `
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <span class="prio-badge ${prioClass(p.value)}">${escHtml(p.value)}</span>
+                      <input id="cfg-prio-label-${idx}" type="text" value="${escHtml(p.label)}" style="flex:1" />
+                    </div>
+                  `).join('')}
+                  <label style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span>Default Priority for new tests</span>
+                    <select id="cfg-default-prio">
+                      ${(d.priorities || []).map(p => `<option value="${escHtml(p.value)}" ${d.defaultPriority === p.value ? 'selected' : ''}>${escHtml(p.label)}</option>`).join('')}
+                    </select>
+                  </label>
+                </div>
+
+                <div class="section-box">
+                  <div style="font-weight:700">Xray Cloud CSV Format</div>
+                  <label style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span>Column Delimiter</span>
+                    <select id="cfg-csv-delim">
+                      <option value="," ${d.csvDelimiter === ',' ? 'selected' : ''}>Comma (,)</option>
+                      <option value=";" ${d.csvDelimiter === ';' ? 'selected' : ''}>Semicolon (;)</option>
+                    </select>
+                  </label>
+                  <label style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span>Multi-Value List Delimiter (Labels/Components)</span>
+                    <input id="cfg-list-delim" type="text" value="${escHtml(d.listDelimiter)}" class="mono" style="width:70px;text-align:center" />
+                  </label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                    <input id="cfg-utf8-bom" type="checkbox" ${d.includeUtf8Bom ? 'checked' : ''} />
+                    <span>Include UTF-8 BOM (recommended for Excel compatibility)</span>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                    <input id="cfg-auto-csv" type="checkbox" ${d.autoWriteCsvToFolder ? 'checked' : ''} />
+                    <span>Auto-write &lt;project&gt;.xray.csv alongside .json in connected folder</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="section-box">
+                <div style="font-weight:700">Exported CSV Column Headers</div>
+                <div style="display:grid;grid-template-columns:repeat(5, minmax(0, 1fr));gap:6px">
+                  ${Object.keys(d.headers).map(k => `
+                    <label style="display:flex;flex-direction:column;gap:2px">
+                      <span class="muted" style="font-size:11px">${escHtml(k)}</span>
+                      <input id="cfg-hdr-${escHtml(k)}" type="text" value="${escHtml(d.headers[k])}" />
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-foot">
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button type="button" onclick="exportConfigJson()">Export config.json</button>
+                <label style="display:inline-flex">
+                  <input type="file" accept=".json" style="display:none" onchange="handleConfigJsonUpload(this.files[0])" />
+                  <span style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);cursor:pointer">Import config.json</span>
+                </label>
+                <button type="button" class="danger" onclick="resetToBakedConfig()">Reset to Baked</button>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button type="button" onclick="downloadConfiguredTeamHtml()">Save Pre-Configured Team HTML</button>
+                <button type="button" class="primary" onclick="saveConfigDraft()">Apply &amp; Save Locally</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderImportModal() {
+      const imp = state.importState;
+      const fields = [
+        ['tcid', 'TCID (Test Case ID)'],
+        ['summary', 'Test Summary'],
+        ['priority', 'Priority (1/2/3 or High/Med/Low)'],
+        ['labels', 'Labels (;-separated)'],
+        ['components', 'Components (;-separated)'],
+        ['requirement', 'Requirement / Story'],
+        ['action', 'Step Action'],
+        ['data', 'Step Data'],
+        ['expected', 'Step Expected Result']
+      ];
+      const headers = imp.rows[0] || [];
+
+      return `
+        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Import Excel or CSV">
+          <div class="modal-card wide">
+            <div class="modal-head">
+              <span class="modal-title">Import Excel (.xlsx), CSV, JSON Draft, or Paste from Excel</span>
+              <button type="button" onclick="closeModal('Closed import')">Close <kbd>Esc</kbd></button>
+            </div>
+            <div class="modal-body">
+              <div class="two-col">
+                <div class="section-box">
+                  <div style="font-weight:700">1. Choose a file (.xlsx, .csv, .tsv, .json)</div>
+                  <input id="import-file-input" type="file" accept=".xlsx,.csv,.tsv,.txt,.json" onchange="handleImportFile(this.files[0])" />
+                  <div class="muted" style="font-size:12px">Runs 100% offline in your browser. Auto-fixes duplicate summaries and encoding quirks.</div>
+                </div>
+                <div class="section-box">
+                  <div style="font-weight:700">2. Or paste cells directly from Excel</div>
+                  <textarea id="import-paste-box" rows="3" placeholder="Click here and press Ctrl+V to paste rows copied from Excel..." oninput="handlePastedImportText(this.value)"></textarea>
+                </div>
+              </div>
+
+              ${imp.error ? `<div class="banner err">${escHtml(imp.error)}</div>` : ''}
+
+              ${imp.rows.length > 0 ? `
+                <div class="section-box">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                    <strong>Loaded ${imp.rows.length} row(s) from ${escHtml(imp.sourceName)}</strong>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      ${imp.sheets.length > 1 ? `
+                        <label>Sheet:
+                          <select onchange="selectImportSheet(Number(this.value))">
+                            ${imp.sheets.map((s, idx) => `<option value="${idx}" ${idx === imp.sheetIdx ? 'selected' : ''}>${escHtml(s.name)}</option>`).join('')}
+                          </select>
+                        </label>
+                      ` : ''}
+                      <label style="display:flex;align-items:center;gap:5px">
+                        <input type="checkbox" ${imp.hasHeaderRow ? 'checked' : ''} onchange="state.importState.hasHeaderRow=this.checked;render(false)" />
+                        <span>First row is headers</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px">
+                    ${fields.map(([key, label]) => `
+                      <label style="display:flex;flex-direction:column;gap:2px">
+                        <span class="muted">${escHtml(label)}</span>
+                        <select onchange="updateImportMapping('${key}', this.value)">
+                          <option value="-1">(Ignore / Not present)</option>
+                          ${headers.map((h, idx) => `<option value="${idx}" ${imp.mapping[key] === idx ? 'selected' : ''}>Col ${idx + 1}: ${escHtml(h || '(blank)')}</option>`).join('')}
+                        </select>
+                      </label>
+                    `).join('')}
+                  </div>
+
+                  <div style="overflow:auto;max-height:130px">
+                    <table class="map-table">
+                      <thead>
+                        <tr>${headers.map((h, idx) => `<th>Col ${idx + 1}: ${escHtml(h)}</th>`).join('')}</tr>
+                      </thead>
+                      <tbody>
+                        ${imp.rows.slice(imp.hasHeaderRow ? 1 : 0, 5).map(r => `<tr>${headers.map((_h, idx) => `<td>${escHtml(r[idx] || '')}</td>`).join('')}</tr>`).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+            <div class="modal-foot">
+              <span class="muted">Duplicates on step 2+ rows are cleaned automatically on import.</span>
+              <div style="display:flex;gap:6px">
+                <button type="button" ${imp.rows.length === 0 ? 'disabled' : ''} onclick="executeImport(false)">Append to Suite</button>
+                <button type="button" class="primary" ${imp.rows.length === 0 ? 'disabled' : ''} onclick="executeImport(true)">Replace Suite</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderExportModal() {
+      const issues = validateSuite(state.tests, state.config);
+      const errors = issues.filter(i => i.severity === 'error');
+      const warns = issues.filter(i => i.severity === 'warn');
+      const hasTagIssues = issues.some(i => i.kind === 'labels' || i.kind === 'components');
+      const csv = buildXrayCsv(state.tests, state.config);
+
+      return `
+        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Xray Cloud Export and Validation">
+          <div class="modal-card wide">
+            <div class="modal-head">
+              <span class="modal-title">Xray Cloud CSV Validation &amp; Export (${state.tests.length} tests)</span>
+              <button type="button" onclick="closeModal('Closed export preview')">Close <kbd>Esc</kbd></button>
+            </div>
+            <div class="modal-body">
+              ${issues.length === 0
+                ? `<div class="banner ok"><strong>All checks passed.</strong> Ready for Xray Cloud Test Case Importer (${escHtml(state.config.includeUtf8Bom ? 'UTF-8 BOM' : 'UTF-8')}, delimiter "${escHtml(state.config.csvDelimiter)}", list delimiter "${escHtml(state.config.listDelimiter)}").</div>`
+                : `<div class="banner ${errors.length ? 'err' : 'warn'}">
+                     <span><strong>${errors.length} error(s), ${warns.length} warning(s)</strong> found across your test cases.</span>
+                     ${hasTagIssues ? `
+                       <div style="display:flex;gap:6px">
+                         <button type="button" onclick="fixUnknownTagsToConfig()">Add Unknown Tags to Central Config</button>
+                         <button type="button" onclick="stripUnknownTagsFromTests()">Strip Unknown Tags</button>
+                       </div>
+                     ` : ''}
+                   </div>`
+              }
+
+              ${issues.length > 0 ? `
+                <div style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto">
+                  ${issues.map(iss => `
+                    <button type="button" class="list-item" onclick="switchTest(${iss.testIdx});closeModal('Jumped to ${escHtml(iss.testId)}')">
+                      <span style="color:var(${iss.severity === 'error' ? '--error' : '--warning'})">${escHtml(iss.message)}</span>
+                      <span class="muted">Jump →</span>
+                    </button>
+                  `).join('')}
+                </div>
+              ` : ''}
+
+              <pre class="code-box">${escHtml(csv)}</pre>
+            </div>
+            <div class="modal-foot">
+              <div class="hints">
+                <span><kbd>c</kbd> Copy CSV</span>
+                <span><kbd>d</kbd> Download CSV</span>
+                <span><kbd>Esc</kbd> Back</span>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button type="button" onclick="downloadSuiteJson()">Save Draft (.json)</button>
+                <button type="button" onclick="copyXrayCsv()">${state.exportCopied ? '✓ Copied' : 'Copy CSV'}</button>
+                <button type="button" class="primary" onclick="downloadXrayCsv()">Download Xray CSV</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function getFolderPillMeta() {
+      if (state.dirHandle) {
+        if (state.syncStatus === 'saving') {
+          return { cls: 'saving', html: `<span>●</span><span>Folder: ${escHtml(state.dirHandle.name)} · Saving…</span>` };
+        }
+        if (state.syncStatus === 'error') {
+          return { cls: 'error', html: `<span>▲</span><span>Folder: ${escHtml(state.dirHandle.name)} · Sync error</span>` };
+        }
+        return { cls: 'connected', html: `<span>●</span><span>Folder: ${escHtml(state.dirHandle.name)}${state.lastSyncTime ? ' · ' + escHtml(state.lastSyncTime) : ''}</span>` };
+      }
+      if (state.pendingDirHandle) {
+        return { cls: 'pending', html: `<span>↻</span><span>Reconnect: ${escHtml(state.pendingDirHandle.name)}</span><kbd>o</kbd>` };
+      }
+      if (supportsDirectorySync()) {
+        return { cls: '', html: `<span>Connect Folder</span><kbd>o</kbd>` };
+      }
+      return { cls: '', html: `<span>Browser Storage</span><kbd>w</kbd>` };
+    }
+
+    function renderProjectsModal() {
+      const pm = state.projectsModal;
+      pm.idx = Math.max(0, Math.min(pm.idx, state.projects.length - 1));
+      const secureSync = supportsDirectorySync();
+
+      let folderBanner = '';
+      if (state.dirHandle) {
+        folderBanner = `
+          <div class="banner ok">
+            <div>
+              <strong>Connected folder: ${escHtml(state.dirHandle.name)}</strong>
+              <div class="muted" style="font-size:12px">Writes <span class="mono">central-config.json</span>, <span class="mono">&lt;project&gt;.json</span>${state.config.autoWriteCsvToFolder ? ', and <span class="mono">&lt;project&gt;.xray.csv</span>' : ''} directly to disk.</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button type="button" onclick="rescanConnectedFolder()">Rescan <kbd>f</kbd></button>
+              <button type="button" onclick="connectLocalFolder(true)">Change Folder <kbd>o</kbd></button>
+              <button type="button" class="danger" onclick="disconnectLocalFolder()">Disconnect</button>
+            </div>
+          </div>
+        `;
+      } else if (state.pendingDirHandle) {
+        folderBanner = `
+          <div class="banner warn">
+            <span>Previously linked folder <strong>${escHtml(state.pendingDirHandle.name)}</strong> needs permission after reload.</span>
+            <div style="display:flex;gap:6px">
+              <button type="button" class="primary" onclick="connectLocalFolder(false)">Reconnect Folder <kbd>o</kbd></button>
+              <button type="button" onclick="connectLocalFolder(true)">Pick Different Folder</button>
+            </div>
+          </div>
+        `;
+      } else if (secureSync) {
+        folderBanner = `
+          <div class="banner">
+            <span>No local folder connected yet (currently saving to Browser Storage). Connect a local or OneDrive-synced folder to persist projects as <span class="mono">.json</span> files.</span>
+            <button type="button" class="primary" onclick="connectLocalFolder(true)">Connect Local Folder <kbd>o</kbd></button>
+          </div>
+        `;
+      } else {
+        folderBanner = `
+          <div class="banner warn">
+            <span>Opened via <span class="mono">file://</span> — Chromium blocks <span class="mono">showDirectoryPicker()</span> on local file URLs. Host this file on <span class="mono">https://*.github.io</span> or <span class="mono">http://localhost</span> to unlock direct local folder read/write. Browser Storage and <span class="mono">.json</span> import/export work normally here.</span>
+          </div>
+        `;
+      }
+
+      const formBox = (pm.submode === 'new' || pm.submode === 'rename')
+        ? `
+          <div class="section-box" style="border-color:var(--primary)">
+            <div style="font-weight:700">${pm.submode === 'new' ? 'Create New Project' : 'Rename Project'}</div>
+            <div style="display:grid;grid-template-columns:1fr 140px auto auto;gap:8px;align-items:center">
+              <input id="proj-name-input" type="text" value="${escHtml(pm.draftName)}" placeholder="Project name (e.g. Checkout Redesign)" />
+              <input id="proj-key-input" type="text" value="${escHtml(pm.draftKey)}" placeholder="Jira key (SHOP)" class="mono" />
+              <button type="button" class="primary" onclick="submitProjectForm()">Save <kbd>Enter</kbd></button>
+              <button type="button" onclick="state.projectsModal.submode='list';render(true)">Cancel <kbd>Esc</kbd></button>
+            </div>
+          </div>
+        `
+        : '';
+
+      return `
+        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Projects and Local Folder Workspace">
+          <div class="modal-card wide">
+            <div class="modal-head">
+              <span class="modal-title">Projects &amp; Local Folder Workspace (${state.projects.length})</span>
+              <button type="button" onclick="closeModal('Closed projects')">Close <kbd>Esc</kbd></button>
+            </div>
+            <div class="modal-body">
+              ${folderBanner}
+              ${formBox}
+              <div id="projects-list-focus" tabindex="-1" style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;outline:none">
+                ${state.projects.map((p, idx) => {
+                  const isActive = idx === state.activeProjectIdx;
+                  const hl = idx === pm.idx;
+                  return `
+                    <button
+                      id="proj-item-${idx}"
+                      type="button"
+                      tabindex="-1"
+                      onclick="state.projectsModal.idx=${idx};switchProject(${idx}, true)"
+                      class="list-item ${hl ? 'highlighted' : ''}"
+                    >
+                      <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                        <span class="mono" style="font-weight:700;color:var(${isActive ? '--success' : '--text-faint'})">${isActive ? '●' : '○'}</span>
+                        <span style="font-weight:700">${escHtml(p.name)}</span>
+                        ${p.jiraProjectKey ? `<span class="chip comp mono">${escHtml(p.jiraProjectKey)}</span>` : ''}
+                        <span class="mono faint" style="font-size:12px">${escHtml(p.fileName)}</span>
+                      </div>
+                      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+                        <span class="muted">${(p.tests || []).length} test(s)</span>
+                        ${hl ? '<kbd>Enter</kbd>' : ''}
+                      </div>
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+            <div class="modal-foot">
+              <div class="hints">
+                <span><kbd>↑</kbd><kbd>↓</kbd> Move</span>
+                <span><kbd>Enter</kbd> Open</span>
+                <span><kbd>n</kbd> New</span>
+                <span><kbd>r</kbd> Rename</span>
+                <span><kbd>d</kbd> Duplicate</span>
+                <span><kbd>Del</kbd> Delete</span>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <label style="display:inline-flex">
+                  <input type="file" accept=".json" style="display:none" onchange="importProjectJsonFile(this.files[0])" />
+                  <span style="padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);cursor:pointer">Import Project .json</span>
+                </label>
+                <button type="button" onclick="downloadActiveProjectJson()">Export Active .json</button>
+                <button type="button" class="primary" onclick="startProjectForm('new')">+ New Project <kbd>n</kbd></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function startProjectForm(submode) {
+      const pm = state.projectsModal;
+      const proj = state.projects[pm.idx];
+      pm.submode = submode;
+      if (submode === 'rename' && proj) {
+        pm.draftName = proj.name;
+        pm.draftKey = proj.jiraProjectKey || '';
+      } else {
+        pm.draftName = '';
+        pm.draftKey = '';
+      }
+      render(true);
+    }
+
+    function submitProjectForm() {
+      const nameVal = document.getElementById('proj-name-input')?.value || '';
+      const keyVal = document.getElementById('proj-key-input')?.value || '';
+      if (!nameVal.trim()) {
+        setStatus('Project name cannot be empty', 'warn');
+        render(true);
+        return;
+      }
+      if (state.projectsModal.submode === 'new') {
+        createProject(nameVal, keyVal);
+      } else if (state.projectsModal.submode === 'rename') {
+        renameProject(state.projectsModal.idx, nameVal, keyVal);
+      }
+    }
+
+    function renderHelpModal() {
+      const row = (k, desc) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0">
+          <span class="muted">${desc}</span>
+          <kbd>${k}</kbd>
+        </div>
+      `;
+      return `
+        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts">
+          <div class="modal-card">
+            <div class="modal-head">
+              <span class="modal-title">Keyboard-Only Shortcuts</span>
+              <button type="button" onclick="closeModal('Closed shortcuts')">Close <kbd>Esc</kbd></button>
+            </div>
+            <div class="modal-body">
+              <div class="two-col">
+                <div class="section-box">
+                  <div style="font-weight:700">Grid Navigation &amp; Step Editing</div>
+                  ${row('↑ ↓ ← →', 'Move cell focus')}
+                  ${row('Enter / F2', 'Edit active cell')}
+                  ${row('Tab / Shift+Tab', 'Save &amp; advance cell (auto-adds step at end)')}
+                  ${row('Shift+Enter', 'New line inside cell while editing')}
+                  ${row('n / Ctrl+Enter', 'Insert step below &amp; edit')}
+                  ${row('d / Del', 'Duplicate / delete active step')}
+                  ${row('Alt+↑ / Alt+↓', 'Move step up / down')}
+                  ${row('Alt+← / Alt+→', 'Rearrange active column left / right')}
+                </div>
+                <div class="section-box">
+                  <div style="font-weight:700">Projects, Fields &amp; Export</div>
+                  ${row('w / o', 'Projects manager / Connect local folder')}
+                  ${row('1 / 2 / 3 or p', 'Set Priority 1, 2, or 3')}
+                  ${row('l / c', 'Open Labels / Components picker')}
+                  ${row('s / r', 'Edit Summary / Requirement key')}
+                  ${row('[ / ] / t', 'Prev / next / new test case')}
+                  ${row('u / Ctrl+Y', 'Undo / Redo')}
+                  ${row('Ctrl+S', 'Save to folder (or download .json)')}
+                  ${row('/ · g · i · e', 'Palette · Config · Import · Export CSV')}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderModal() {
+      if (state.modal === 'labels' || state.modal === 'components') return renderPickerModal();
+      if (state.modal === 'palette') return renderPaletteModal();
+      if (state.modal === 'config') return renderConfigModal();
+      if (state.modal === 'import') return renderImportModal();
+      if (state.modal === 'export') return renderExportModal();
+      if (state.modal === 'projects') return renderProjectsModal();
+      if (state.modal === 'help') return renderHelpModal();
+      return '';
+    }
+
+    function renderFooterHints() {
+      if (state.mode === 'edit') {
+        return '<span><kbd>Tab</kbd> Next cell / new step</span><span><kbd>Shift+Enter</kbd> New line</span><span><kbd>Enter</kbd> Save</span><span><kbd>Esc</kbd> Cancel</span>';
+      }
+      if (state.mode === 'summary' || state.mode === 'requirement') {
+        return '<span><kbd>Enter</kbd> Save field</span><span><kbd>Esc</kbd> Cancel</span>';
+      }
+      return '<span><kbd>Arrows</kbd> Move</span><span><kbd>Enter</kbd> Edit</span><span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Priority</span><span><kbd>l</kbd> Labels</span><span><kbd>c</kbd> Components</span><span><kbd>w</kbd> Projects</span><span><kbd>o</kbd> Folder</span><span><kbd>/</kbd> Cmds</span>';
+    }
+
+    function onCellClick(r, c) {
+      if (state.mode === 'nav' && state.row === r && state.col === c) {
+        startCellEdit();
+        return;
+      }
+      if (state.mode === 'edit') {
+        commitCellEdit('stay');
+      }
+      state.row = r;
+      state.col = c;
+      state.mode = 'nav';
+      render(true);
+    }
+
+    function restoreFocus() {
+      if (state.mode === 'modal') {
+        if (state.modal === 'palette') document.getElementById('palette-input')?.focus();
+        else if (state.modal === 'labels' || state.modal === 'components') document.getElementById('picker-filter')?.focus();
+        else if (state.modal === 'config') document.getElementById('cfg-add-label')?.focus();
+        else if (state.modal === 'import') document.getElementById('import-paste-box')?.focus();
+        else if (state.modal === 'projects') {
+          if (state.projectsModal.submode === 'new' || state.projectsModal.submode === 'rename') {
+            document.getElementById('proj-name-input')?.focus();
+          } else {
+            document.getElementById('projects-list-focus')?.focus({ preventScroll: true });
+            document.getElementById(`proj-item-${state.projectsModal.idx}`)?.scrollIntoView({ block: 'nearest' });
+          }
+        }
+        else document.querySelector('.modal-card button')?.focus();
+        return;
+      }
+      if (state.mode === 'edit') {
+        const ta = document.getElementById('cell-textarea');
+        if (ta) {
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+        }
+        return;
+      }
+      if (state.mode === 'summary' || state.mode === 'requirement') {
+        const inp = document.getElementById('meta-inline-input');
+        if (inp) {
+          inp.focus();
+          inp.select();
+        }
+        return;
+      }
+      const cell = document.getElementById(`cell-${state.row}-${state.col}`);
+      if (cell) {
+        cell.focus({ preventScroll: true });
+        cell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+    }
+
+    function render(shouldFocus = false) {
+      clampCursor();
+      const proj = activeProject();
+      const folderMeta = getFolderPillMeta();
+      const modePillClass = state.mode === 'edit' || state.mode === 'summary' || state.mode === 'requirement'
+        ? 'edit'
+        : (state.mode === 'modal' ? 'modal' : '');
+      const modeText = state.mode === 'modal'
+        ? state.modal.toUpperCase()
+        : (state.mode === 'nav' ? 'NAVIGATE' : 'EDITING');
+
+      const app = document.getElementById('app');
+      app.innerHTML = `
+        <header class="topbar">
+          <div class="brand">
+            <span class="brand-title">Xray Cloud Test Studio</span>
+            <button type="button" tabindex="-1" onclick="openProjectsModal()" title="Switch or manage projects (w)">
+              <span class="muted">Project:</span>
+              <strong>${escHtml(proj.name)}</strong>
+              <kbd>w</kbd>
+            </button>
+            <button id="folder-pill" type="button" tabindex="-1" class="folder-pill ${folderMeta.cls}" onclick="state.dirHandle ? openProjectsModal() : connectLocalFolder(false)" title="Connect or inspect local folder (o)">
+              ${folderMeta.html}
+            </button>
+            <span class="mode-pill ${modePillClass}">${modeText}</span>
+          </div>
+          <div class="top-actions">
+            <button type="button" tabindex="-1" onclick="openPalette()">Commands <kbd>/</kbd></button>
+            <button type="button" tabindex="-1" onclick="openImportModal()">Import <kbd>i</kbd></button>
+            <button type="button" tabindex="-1" onclick="openConfigModal()">Central Config <kbd>g</kbd></button>
+            <button type="button" tabindex="-1" class="primary" onclick="openModal('export')">Export CSV <kbd>e</kbd></button>
+            <button type="button" tabindex="-1" onclick="openModal('help')">Keys <kbd>?</kbd></button>
+          </div>
+        </header>
+
+        <div class="workspace">
+          ${renderSidebar()}
+          <main class="main-pane">
+            ${renderMetaPanel()}
+            ${renderGrid()}
+          </main>
+        </div>
+
+        <footer class="footer">
+          <div class="hints">${renderFooterHints()}</div>
+          <div role="status" aria-live="polite" class="status-msg ${state.statusTone}">${escHtml(state.statusMsg)}</div>
+        </footer>
+
+        ${state.mode === 'modal' ? renderModal() : ''}
+      `;
+
+      if (shouldFocus) restoreFocus();
+    }
+
+    /* =========================================================================
+       GLOBAL KEYBOARD HANDLER
+       ========================================================================= */
+
+    window.addEventListener('keydown', (e) => {
+      const key = e.key;
+      const lower = key.toLowerCase();
+
+      if ((e.ctrlKey || e.metaKey) && lower === 's') {
+        e.preventDefault();
+        if (state.dirHandle) flushFolderSave();
+        else downloadActiveProjectJson();
+        return;
+      }
+
+      if (state.mode === 'modal') {
+        if (state.modal === 'projects') {
+          const pm = state.projectsModal;
+          if (pm.submode === 'new' || pm.submode === 'rename') {
+            if (key === 'Escape') {
+              e.preventDefault();
+              pm.submode = 'list';
+              render(true);
+            } else if (key === 'Enter') {
+              e.preventDefault();
+              submitProjectForm();
+            }
+            return;
+          }
+          if (key === 'Escape') {
+            e.preventDefault();
+            closeModal('Closed projects');
+          } else if (key === 'ArrowDown') {
+            e.preventDefault();
+            pm.idx = (pm.idx + 1) % state.projects.length;
+            render(true);
+          } else if (key === 'ArrowUp') {
+            e.preventDefault();
+            pm.idx = (pm.idx - 1 + state.projects.length) % state.projects.length;
+            render(true);
+          } else if (key === 'Enter') {
+            e.preventDefault();
+            switchProject(pm.idx, true);
+          } else if (lower === 'n') {
+            e.preventDefault();
+            startProjectForm('new');
+          } else if (lower === 'r') {
+            e.preventDefault();
+            startProjectForm('rename');
+          } else if (lower === 'd') {
+            e.preventDefault();
+            duplicateProjectAt(pm.idx);
+          } else if (key === 'Delete' || key === 'Backspace') {
+            e.preventDefault();
+            deleteProjectAt(pm.idx);
+          } else if (lower === 'f' && state.dirHandle) {
+            e.preventDefault();
+            rescanConnectedFolder();
+          } else if (lower === 'o') {
+            e.preventDefault();
+            connectLocalFolder(true);
+          }
+          return;
+        }
+
+        if (key === 'Escape') {
+          e.preventDefault();
+          closeModal('Closed dialog');
+          return;
+        }
+        if (state.modal === 'palette') {
+          const cmds = getFilteredCommands();
+          if (key === 'ArrowDown') {
+            e.preventDefault();
+            if (cmds.length) {
+              state.paletteIdx = (state.paletteIdx + 1) % cmds.length;
+              renderPaletteListOnly();
+              document.getElementById(`pal-item-${state.paletteIdx}`)?.scrollIntoView({ block: 'nearest' });
+            }
+          } else if (key === 'ArrowUp') {
+            e.preventDefault();
+            if (cmds.length) {
+              state.paletteIdx = (state.paletteIdx - 1 + cmds.length) % cmds.length;
+              renderPaletteListOnly();
+              document.getElementById(`pal-item-${state.paletteIdx}`)?.scrollIntoView({ block: 'nearest' });
+            }
+          } else if (key === 'Enter' && cmds[state.paletteIdx]) {
+            e.preventDefault();
+            cmds[state.paletteIdx].run();
+          }
+          return;
+        }
+        if (state.modal === 'labels' || state.modal === 'components') {
+          const opts = getPickerOptions();
+          if (key === 'ArrowDown') {
+            e.preventDefault();
+            if (opts.length) {
+              state.picker.idx = (state.picker.idx + 1) % opts.length;
+              renderPickerListOnly();
+            }
+          } else if (key === 'ArrowUp') {
+            e.preventDefault();
+            if (opts.length) {
+              state.picker.idx = (state.picker.idx - 1 + opts.length) % opts.length;
+              renderPickerListOnly();
+            }
+          } else if (key === ' ' && (e.ctrlKey || document.activeElement?.id !== 'picker-filter' || state.picker.filter === '')) {
+            e.preventDefault();
+            if (opts[state.picker.idx]) togglePickerOption(opts[state.picker.idx]);
+          } else if (key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            addCustomPickerValue();
+          } else if (key === 'Enter') {
+            e.preventDefault();
+            applyPickerSelection();
+          }
+          return;
+        }
+        if (state.modal === 'export') {
+          if (lower === 'c' && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            copyXrayCsv();
+          } else if (lower === 'd' && !e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            downloadXrayCsv();
+          }
+          return;
+        }
+        if (state.modal === 'help' && key === '?') {
+          e.preventDefault();
+          closeModal('Closed shortcuts');
+        }
+        return;
+      }
+
+      if (state.mode === 'edit') {
+        if (key === 'Escape') {
+          e.preventDefault();
+          state.mode = 'nav';
+          setStatus('Cancelled cell edit');
+          render(true);
+        } else if (key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          commitCellEdit('newStep');
+        } else if (key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          commitCellEdit('enter');
+        } else if (key === 'Tab') {
+          e.preventDefault();
+          commitCellEdit(e.shiftKey ? 'tabPrev' : 'tabNext');
+        }
+        return;
+      }
+
+      if (state.mode === 'summary' || state.mode === 'requirement') {
+        if (key === 'Enter') {
+          e.preventDefault();
+          commitMetaEdit();
+        } else if (key === 'Escape') {
+          e.preventDefault();
+          state.mode = 'nav';
+          setStatus('Cancelled field edit');
+          render(true);
+        }
+        return;
+      }
+
+      // NAVIGATE mode
+      const t = activeTest();
+      const cols = getVisibleStepColumns(state.config);
+
+      if ((e.ctrlKey || e.metaKey) && lower === 'k') { e.preventDefault(); openPalette(); }
+      else if ((e.ctrlKey || e.metaKey) && lower === 'z') { e.preventDefault(); undo(); }
+      else if ((e.ctrlKey || e.metaKey) && (lower === 'y' || (e.shiftKey && lower === 'z'))) { e.preventDefault(); redo(); }
+      else if ((e.ctrlKey || e.metaKey) && lower === 'e') { e.preventDefault(); openModal('export'); }
+      else if ((e.ctrlKey || e.metaKey) && lower === 'i') { e.preventDefault(); openImportModal(); }
+      else if ((e.ctrlKey || e.metaKey) && key === ',') { e.preventDefault(); openConfigModal(); }
+      else if (key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); insertStepBelow(true); }
+      else if (e.altKey && key === 'ArrowUp') { e.preventDefault(); moveStep(-1); }
+      else if (e.altKey && key === 'ArrowDown') { e.preventDefault(); moveStep(1); }
+      else if (e.altKey && key === 'ArrowLeft') { e.preventDefault(); moveColumn(-1); }
+      else if (e.altKey && key === 'ArrowRight') { e.preventDefault(); moveColumn(1); }
+      else if (key === 'ArrowUp') { e.preventDefault(); if (state.row > 0) state.row--; render(true); }
+      else if (key === 'ArrowDown') { e.preventDefault(); if (state.row + 1 < t.steps.length) state.row++; render(true); }
+      else if (key === 'ArrowLeft') { e.preventDefault(); if (state.col > 0) state.col--; render(true); }
+      else if (key === 'ArrowRight') { e.preventDefault(); if (state.col + 1 < cols.length) state.col++; render(true); }
+      else if (key === 'Tab') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          if (state.col > 0) state.col--;
+          else if (state.row > 0) { state.row--; state.col = cols.length - 1; }
+        } else {
+          if (state.col + 1 < cols.length) state.col++;
+          else if (state.row + 1 < t.steps.length) { state.row++; state.col = 0; }
+        }
+        render(true);
+      }
+      else if (key === 'Enter' || key === 'F2') { e.preventDefault(); startCellEdit(); }
+      else if (key === '1' || key === '2' || key === '3') { e.preventDefault(); setPriorityValue(key); }
+      else if (lower === 'p') { e.preventDefault(); cyclePriority(); }
+      else if (lower === 'l') { e.preventDefault(); openPicker('labels'); }
+      else if (lower === 'c') { e.preventDefault(); openPicker('components'); }
+      else if (lower === 's') { e.preventDefault(); startMetaEdit('summary'); }
+      else if (lower === 'r') { e.preventDefault(); startMetaEdit('requirement'); }
+      else if (lower === 'g') { e.preventDefault(); openConfigModal(); }
+      else if (lower === 'w') { e.preventDefault(); openProjectsModal(); }
+      else if (lower === 'o') { e.preventDefault(); connectLocalFolder(false); }
+      else if (lower === 'i') { e.preventDefault(); openImportModal(); }
+      else if (lower === 'e') { e.preventDefault(); openModal('export'); }
+      else if (key === '/') { e.preventDefault(); openPalette(); }
+      else if (key === '?') { e.preventDefault(); openModal('help'); }
+      else if (lower === 'n') { e.preventDefault(); insertStepBelow(true); }
+      else if (lower === 'd') { e.preventDefault(); duplicateStep(); }
+      else if (key === 'Delete' || key === 'Backspace') { e.preventDefault(); deleteStep(); }
+      else if (key === 'T' && e.shiftKey) { e.preventDefault(); duplicateTest(); }
+      else if (lower === 't') { e.preventDefault(); createNewTest(); }
+      else if (key === '[') { e.preventDefault(); switchTest((state.activeTestIdx - 1 + state.tests.length) % state.tests.length); }
+      else if (key === ']') { e.preventDefault(); switchTest((state.activeTestIdx + 1) % state.tests.length); }
+      else if (lower === 'u') { e.preventDefault(); undo(); }
+    });
+
+    applyTheme();
+    render(true);
+    initPersistedFolder();
+  </script>
+</body>
+</html>
