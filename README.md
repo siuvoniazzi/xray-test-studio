@@ -12,7 +12,8 @@ A zero-dependency, keyboard-first browser studio for authoring, importing, and v
   - `<project>.json` — Project metadata, test cases, and steps (source of truth)
   - `<project>.xray.csv` — Auto-updated Xray Cloud import CSV (toggleable in Central Config)
 - **Central Config & Team Distribution (`g`):** Configure allowed Labels, Components, Priority (`1`, `2`, `3`) labels, and CSV column headers, or click **Save Pre-Configured Team HTML** to distribute a single pre-baked `.html` file.
-- **Offline Excel / CSV / Paste Import (`i`):** Parses `.xlsx`, `.csv`, `.tsv`, `.json` drafts, and pasted Excel cells (`Ctrl+V`), automatically fixing duplicate step-row summaries, delimiter mismatches, and encoding quirks.
+- **AI Smart Import (`i`):** Paste any unstructured text—user stories, Jira descriptions, emails, bullet notes, or messy spreadsheets—or attach `.xlsx` / `.csv` / `.txt` / `.md` files and let an AI API generate clean, structured Xray Cloud test cases constrained to your Central Config Labels, Components, and Priorities (`1`, `2`, `3`). Supports **Google Gemini** (`gemini-3.8-flash`), **OpenAI**, **OpenRouter**, **Anthropic Claude**, or any **Custom OpenAI-Compatible** endpoint directly from the browser (BYOK: keys stay in `sessionStorage` by default or optional browser `localStorage`, and are never saved to project files or config JSON).
+- **Structured Excel / CSV / Paste Import (`i`):** Also includes a zero-API offline importer for `.xlsx`, `.csv`, `.tsv`, `.json` drafts, and pasted Excel cells (`Ctrl+V`) with column mapping and automatic cleanup of duplicate step-row summaries.
 - **Xray Cloud CSV Export (`e`):** Places `Test Summary`, `Test Type`, `Priority`, `Labels`, `Components`, and `Requirement` on **step 1 only**, joins multiple Labels/Components with `;` in double quotes (e.g. `"Regression;Smoke"`), and exports UTF-8 CSV (with optional BOM) in your chosen step-column order.
 
 ## Core Keyboard Shortcuts

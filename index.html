@@ -764,6 +764,11 @@
   "listDelimiter": ";",
   "includeUtf8Bom": true,
   "autoWriteCsvToFolder": true,
+  "ai": {
+    "provider": "gemini",
+    "model": "gemini-3.8-flash",
+    "customEndpoint": ""
+  },
   "columnOrder": [
     "action",
     "data",
@@ -793,6 +798,7 @@
     const STORAGE_PROJECTS_KEY = 'xrayStudio.projects.v1';
     const STORAGE_SUITE_KEY = 'xrayStudio.suite.v1';
     const STORAGE_THEME_KEY = 'xrayStudio.theme.v1';
+    const STORAGE_AI_KEY = 'xrayStudio.aiKey.v1';
 
     /* =========================================================================
        PURE CORE ENGINE (CSV, XLSX, Validation, Config Serialization)
@@ -829,6 +835,14 @@
       if (typeof raw.listDelimiter === 'string' && raw.listDelimiter.length > 0) cfg.listDelimiter = raw.listDelimiter;
       if (typeof raw.includeUtf8Bom === 'boolean') cfg.includeUtf8Bom = raw.includeUtf8Bom;
       if (typeof raw.autoWriteCsvToFolder === 'boolean') cfg.autoWriteCsvToFolder = raw.autoWriteCsvToFolder;
+      if (raw.ai && typeof raw.ai === 'object') {
+        const prov = String(raw.ai.provider || '').trim();
+        cfg.ai = {
+          provider: ['gemini', 'openai', 'openrouter', 'anthropic', 'custom'].includes(prov) ? prov : cfg.ai.provider,
+          model: String(raw.ai.model || cfg.ai.model).trim(),
+          customEndpoint: String(raw.ai.customEndpoint || '').trim()
+        };
+      }
       if (Array.isArray(raw.columnOrder)) {
         const valid = ['action', 'data', 'expected'];
         const cleaned = raw.columnOrder.filter(k => valid.includes(k));
@@ -1542,6 +1556,309 @@
       }
     }
 
+    /* --- AI Smart Import Engine --- */
+
+    const AI_PROVIDER_DEFAULTS = {
+      gemini: {
+        label: 'Google Gemini',
+        defaultModel: 'gemini-3.8-flash',
+        models: ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-4-argon', 'gemini-4-carbon']
+      },
+      openai: {
+        label: 'OpenAI',
+        defaultModel: 'gpt-4o-mini',
+        models: ['gpt-4o-mini', 'gpt-4o']
+      },
+      openrouter: {
+        label: 'OpenRouter',
+        defaultModel: 'google/gemini-3.8-flash',
+        models: ['google/gemini-3.8-flash', 'openai/gpt-4o-mini', 'anthropic/claude-sonnet-4']
+      },
+      anthropic: {
+        label: 'Anthropic Claude',
+        defaultModel: 'claude-sonnet-4-20250514',
+        models: ['claude-sonnet-4-20250514']
+      },
+      custom: {
+        label: 'Custom OpenAI-Compatible (Azure / Ollama / Gateway)',
+        defaultModel: 'gpt-4o-mini',
+        models: []
+      }
+    };
+
+    function buildAiImportSchema(config) {
+      const prios = (config.priorities || [{ value: '1' }, { value: '2' }, { value: '3' }]).map(p => String(p.value));
+      return {
+        type: 'object',
+        required: ['tests'],
+        properties: {
+          tests: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['summary', 'priority', 'steps'],
+              properties: {
+                summary: { type: 'string' },
+                priority: { type: 'string', enum: prios },
+                labels: { type: 'array', items: { type: 'string' } },
+                components: { type: 'array', items: { type: 'string' } },
+                requirement: { type: 'string' },
+                steps: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    required: ['action', 'data', 'expected'],
+                    properties: {
+                      action: { type: 'string' },
+                      data: { type: 'string' },
+                      expected: { type: 'string' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      };
+    }
+
+    function buildAiSystemPrompt(config, project, extraInstructions) {
+      const prioDesc = (config.priorities || []).map(p => `${p.value} (${p.label})`).join(', ');
+      const labelsList = (config.labels || []).join(', ') || '(none configured)';
+      const compsList = (config.components || []).join(', ') || '(none configured)';
+      const projLine = project
+        ? `Target project: "${project.name}"${project.jiraProjectKey ? ` (Jira Key: ${project.jiraProjectKey})` : ''}.`
+        : '';
+
+      return [
+        'You are a QA test-engineering assistant converting arbitrary source material (user stories, specs, emails, rough notes, or messy spreadsheets) into structured Jira Xray Cloud manual test cases.',
+        projLine,
+        `Priority must be one of: ${prioDesc}. Use "${config.defaultPriority || '2'}" if priority is unclear.`,
+        config.allowCustomLabels
+          ? `Preferred Labels: [${labelsList}]. Reuse matching labels first; add new short labels only if clearly needed.`
+          : `Allowed Labels (STRICT — choose ONLY from this exact list, or return [] if none match): [${labelsList}].`,
+        config.allowCustomComponents
+          ? `Preferred Components: [${compsList}]. Reuse matching components first.`
+          : `Allowed Components (STRICT — choose ONLY from this exact list, or return [] if none match): [${compsList}].`,
+        'Break each test into concrete sequential steps with "action" (what the tester does), "data" (input values/credentials/parameters or "" if none), and "expected" (verifiable outcome).',
+        'If the source mentions a Jira issue/story key (e.g. SHOP-214), put it in "requirement"; otherwise use "".',
+        'Preserve the language of the input text unless the user requests a specific language.',
+        extraInstructions ? `Additional user instructions: ${String(extraInstructions).trim()}` : '',
+        'Respond strictly with JSON matching: { "tests": [ { "summary": "...", "priority": "1|2|3", "labels": [], "components": [], "requirement": "", "steps": [ { "action": "...", "data": "...", "expected": "..." } ] } ] }.'
+      ].filter(Boolean).join('\n');
+    }
+
+    function buildAiProviderRequest(opts) {
+      const provider = opts.provider || 'gemini';
+      const apiKey = String(opts.apiKey || '').trim();
+      const def = AI_PROVIDER_DEFAULTS[provider] || AI_PROVIDER_DEFAULTS.gemini;
+      const model = String(opts.model || '').trim() || def.defaultModel;
+      const systemPrompt = String(opts.systemPrompt || '');
+      const userPrompt = String(opts.userPrompt || '');
+      const schema = opts.schema;
+
+      if (provider === 'gemini') {
+        if (!apiKey) throw new Error('Enter a Google Gemini API key first.');
+        return {
+          url: 'https://generativelanguage.googleapis.com/v1beta/interactions',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
+          body: {
+            model,
+            system_instruction: systemPrompt,
+            input: userPrompt,
+            store: false,
+            response_format: {
+              type: 'text',
+              mime_type: 'application/json',
+              schema
+            }
+          }
+        };
+      }
+
+      if (provider === 'anthropic') {
+        if (!apiKey) throw new Error('Enter an Anthropic API key first.');
+        return {
+          url: 'https://api.anthropic.com/v1/messages',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: {
+            model,
+            max_tokens: 4096,
+            system: systemPrompt + '\nReturn ONLY raw JSON without markdown code fences.',
+            messages: [{ role: 'user', content: userPrompt }]
+          }
+        };
+      }
+
+      let url = 'https://api.openai.com/v1/chat/completions';
+      if (provider === 'openrouter') {
+        url = 'https://openrouter.ai/api/v1/chat/completions';
+      } else if (provider === 'custom') {
+        url = String(opts.customEndpoint || '').trim();
+        if (!url) throw new Error('Enter a custom OpenAI-compatible endpoint URL.');
+      }
+      if (!apiKey && provider !== 'custom') {
+        throw new Error(`Enter an API key for ${def.label} first.`);
+      }
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (apiKey) headers['Authorization'] = 'Bearer ' + apiKey;
+
+      return {
+        url,
+        headers,
+        body: {
+          model,
+          temperature: 0.2,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          response_format: { type: 'json_object' }
+        }
+      };
+    }
+
+    function extractAiResponseText(provider, json) {
+      if (!json || typeof json !== 'object') return '';
+      if (provider === 'gemini') {
+        if (typeof json.output_text === 'string' && json.output_text.trim()) return json.output_text;
+        if (Array.isArray(json.steps)) {
+          const texts = [];
+          json.steps.forEach(s => {
+            if (s && s.type === 'model_output' && Array.isArray(s.content)) {
+              s.content.forEach(c => {
+                if (c && c.type === 'text' && typeof c.text === 'string') texts.push(c.text);
+              });
+            }
+          });
+          if (texts.length > 0) return texts.join('');
+        }
+        if (Array.isArray(json.outputs) && json.outputs.length > 0) {
+          const last = json.outputs[json.outputs.length - 1];
+          if (last && typeof last.text === 'string') return last.text;
+        }
+        const candText = json.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('');
+        if (candText) return candText;
+        return '';
+      }
+      if (provider === 'anthropic') {
+        if (Array.isArray(json.content)) {
+          return json.content.filter(b => b && b.type === 'text' && typeof b.text === 'string').map(b => b.text).join('');
+        }
+        return '';
+      }
+      return String(json.choices?.[0]?.message?.content || '');
+    }
+
+    function matchConfiguredTag(candidate, allowedList, allowCustom, droppedSet) {
+      const clean = String(candidate || '').trim();
+      if (!clean) return null;
+      const lowerMap = new Map();
+      (allowedList || []).forEach(item => lowerMap.set(String(item).toLowerCase(), String(item)));
+      const exactCase = lowerMap.get(clean.toLowerCase());
+      if (exactCase) return exactCase;
+      if (allowCustom) return clean;
+      droppedSet.add(clean);
+      return null;
+    }
+
+    function parseAiImportedTests(rawText, config) {
+      let cleaned = String(rawText || '').trim();
+      cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+      let parsed;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (_firstErr) {
+        const objStart = cleaned.indexOf('{');
+        const arrStart = cleaned.indexOf('[');
+        const start = (objStart >= 0 && (arrStart < 0 || objStart < arrStart)) ? objStart : arrStart;
+        const end = start === objStart ? cleaned.lastIndexOf('}') : cleaned.lastIndexOf(']');
+        if (start < 0 || end <= start) {
+          throw new Error('AI response was not valid JSON.');
+        }
+        parsed = JSON.parse(cleaned.slice(start, end + 1));
+      }
+
+      const rawList = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.tests) ? parsed.tests : null);
+      if (!rawList || rawList.length === 0) {
+        throw new Error('AI response did not contain any test cases.');
+      }
+
+      const droppedLabels = new Set();
+      const droppedComponents = new Set();
+
+      const tests = rawList.map((item, idx) => {
+        const labels = dedupeStrings(
+          (Array.isArray(item.labels) ? item.labels : [])
+            .map(l => matchConfiguredTag(l, config.labels, config.allowCustomLabels, droppedLabels))
+            .filter(Boolean)
+        );
+        const components = dedupeStrings(
+          (Array.isArray(item.components) ? item.components : [])
+            .map(c => matchConfiguredTag(c, config.components, config.allowCustomComponents, droppedComponents))
+            .filter(Boolean)
+        );
+        const rawSteps = Array.isArray(item.steps) && item.steps.length > 0
+          ? item.steps
+          : [{ action: '', data: '', expected: '' }];
+        const steps = rawSteps.map(s => ({
+          action: String(s?.action ?? '').trim(),
+          data: String(s?.data ?? '').trim(),
+          expected: String(s?.expected ?? '').trim()
+        }));
+
+        return {
+          id: 'TC-' + String(idx + 1).padStart(2, '0'),
+          summary: String(item.summary || item.title || ('Test case ' + (idx + 1))).trim(),
+          priority: normalizeImportedPriority(item.priority, config),
+          labels,
+          components,
+          requirement: String(item.requirement || '').trim(),
+          steps
+        };
+      });
+
+      return {
+        tests,
+        droppedLabels: [...droppedLabels],
+        droppedComponents: [...droppedComponents]
+      };
+    }
+
+    function formatSheetsForAiPrompt(sheets, fileName) {
+      const maxChars = 35000;
+      const parts = [];
+      let total = 0;
+      let truncated = false;
+
+      for (const sheet of (sheets || [])) {
+        const header = `=== File: ${fileName || 'workbook'} | Sheet: ${sheet.name} ===\n`;
+        const body = (sheet.rows || []).map(r => r.map(c => String(c ?? '').replace(/\r?\n/g, ' ')).join('\t')).join('\n');
+        const chunk = header + body + '\n\n';
+        if (total + chunk.length > maxChars) {
+          parts.push(chunk.slice(0, Math.max(0, maxChars - total)));
+          truncated = true;
+          break;
+        }
+        parts.push(chunk);
+        total += chunk.length;
+      }
+
+      let out = parts.join('').trim();
+      if (truncated) out += '\n\n[Truncated at 35,000 characters to fit model context]';
+      return out;
+    }
+
     /* =========================================================================
        APPLICATION STATE & BOOTSTRAP
        ========================================================================= */
@@ -1573,6 +1890,11 @@
       listDelimiter: ';',
       includeUtf8Bom: true,
       autoWriteCsvToFolder: true,
+      ai: {
+        provider: 'gemini',
+        model: 'gemini-3.8-flash',
+        customEndpoint: ''
+      },
       columnOrder: ['action', 'data', 'expected'],
       hiddenColumns: [],
       headers: {
@@ -1686,11 +2008,33 @@
     })();
 
     const initialWorkspace = loadInitialProjects(BAKED_CONFIG);
+    const initialConfig = loadInitialConfig();
     const folderWriteQueue = createSerializedWriteQueue();
     let folderSaveTimer = null;
 
+    function loadStoredAiCreds(cfg) {
+      let apiKey = '';
+      let remember = false;
+      try {
+        const localKey = localStorage.getItem(STORAGE_AI_KEY);
+        const sessKey = sessionStorage.getItem(STORAGE_AI_KEY);
+        if (localKey) { apiKey = localKey; remember = true; }
+        else if (sessKey) { apiKey = sessKey; remember = false; }
+      } catch (_e) {}
+      const aiCfg = (cfg && cfg.ai) || { provider: 'gemini', model: 'gemini-3.8-flash', customEndpoint: '' };
+      return {
+        provider: aiCfg.provider || 'gemini',
+        model: aiCfg.model || (AI_PROVIDER_DEFAULTS[aiCfg.provider || 'gemini']?.defaultModel || 'gemini-3.8-flash'),
+        customEndpoint: aiCfg.customEndpoint || '',
+        apiKey,
+        remember
+      };
+    }
+
+    const initialAiCreds = loadStoredAiCreds(initialConfig);
+
     const state = {
-      config: loadInitialConfig(),
+      config: initialConfig,
       projects: initialWorkspace.projects,
       activeProjectIdx: initialWorkspace.activeProjectIdx,
       activeTestIdx: 0,
@@ -1703,7 +2047,7 @@
       undoStack: [],
       redoStack: [],
       theme: initialTheme,
-      statusMsg: 'Keyboard-ready — press ? for shortcuts, w for Projects, o for Local Folder',
+      statusMsg: 'Keyboard-ready — press ? for shortcuts, w for Projects, i for AI Import',
       statusTone: '',
       paletteQuery: '',
       paletteIdx: 0,
@@ -1715,6 +2059,7 @@
       },
       configDraft: null,
       importState: {
+        tab: 'ai', // 'ai' | 'structured'
         sourceName: '',
         sheets: [],
         sheetIdx: 0,
@@ -1722,6 +2067,22 @@
         hasHeaderRow: true,
         mapping: null,
         error: ''
+      },
+      aiImport: {
+        provider: initialAiCreds.provider,
+        model: initialAiCreds.model,
+        customEndpoint: initialAiCreds.customEndpoint,
+        apiKey: initialAiCreds.apiKey,
+        rememberKey: initialAiCreds.remember,
+        showSettings: !initialAiCreds.apiKey,
+        rawInput: '',
+        extraInstructions: '',
+        attachedFileName: '',
+        loading: false,
+        error: '',
+        generatedTests: [],
+        droppedLabels: [],
+        droppedComponents: []
       },
       exportCopied: false,
       dirHandle: null,
@@ -2730,7 +3091,7 @@
         { label: 'Set Priority 2 (Medium)', key: '2', run: () => { closeModal(); setPriorityValue('2'); } },
         { label: 'Set Priority 3 (Low)', key: '3', run: () => { closeModal(); setPriorityValue('3'); } },
         { label: 'Open Central Config (Labels, Components, Priorities)', key: 'g', run: () => openConfigModal() },
-        { label: 'Import Excel (.xlsx) / CSV / Paste from Excel', key: 'i', run: () => openImportModal() },
+        { label: 'AI Smart Import / Excel / CSV', key: 'i', run: () => openImportModal('ai') },
         { label: 'Export & Validate Xray Cloud CSV', key: 'e', run: () => openModal('export') },
         { label: 'Add step below current row', key: 'n', run: () => { closeModal(); insertStepBelow(true); } },
         { label: 'Duplicate current step', key: 'd', run: () => { closeModal(); duplicateStep(); } },
@@ -2881,10 +3242,31 @@
       reader.readAsText(file);
     }
 
-    /* --- Import Modal Logic --- */
+    /* --- Import Modal Logic (AI Smart Import + Structured Importer) --- */
 
-    function openImportModal() {
+    function persistAiKeyChoice() {
+      const key = String(state.aiImport.apiKey || '').trim();
+      try {
+        sessionStorage.removeItem(STORAGE_AI_KEY);
+        localStorage.removeItem(STORAGE_AI_KEY);
+        if (key) {
+          if (state.aiImport.rememberKey) localStorage.setItem(STORAGE_AI_KEY, key);
+          else sessionStorage.setItem(STORAGE_AI_KEY, key);
+        }
+      } catch (_e) {}
+    }
+
+    function clearStoredAiKey() {
+      state.aiImport.apiKey = '';
+      state.aiImport.rememberKey = false;
+      state.aiImport.showSettings = true;
+      persistAiKeyChoice();
+      render(false);
+    }
+
+    function openImportModal(defaultTab = 'ai') {
       state.importState = {
+        tab: defaultTab === 'structured' ? 'structured' : 'ai',
         sourceName: '',
         sheets: [],
         sheetIdx: 0,
@@ -2893,8 +3275,176 @@
         mapping: null,
         error: ''
       };
-      setStatus('Import Excel, CSV, JSON, or paste cells');
+      state.aiImport.loading = false;
+      state.aiImport.error = '';
+      state.aiImport.showSettings = !state.aiImport.apiKey;
+      setStatus(state.importState.tab === 'ai' ? 'AI Smart Import — paste specs, notes, or attach a file' : 'Structured Excel / CSV / JSON Import');
       openModal('import');
+    }
+
+    function switchImportTab(tab) {
+      state.importState.tab = tab;
+      render(true);
+    }
+
+    function updateAiProvider(provider) {
+      const def = AI_PROVIDER_DEFAULTS[provider] || AI_PROVIDER_DEFAULTS.gemini;
+      state.aiImport.provider = provider;
+      state.aiImport.model = def.defaultModel;
+      state.config.ai = {
+        provider,
+        model: state.aiImport.model,
+        customEndpoint: state.aiImport.customEndpoint || ''
+      };
+      persistConfig(false);
+      render(false);
+    }
+
+    function syncAiInputsFromDom() {
+      const provEl = document.getElementById('ai-provider-select');
+      const modelEl = document.getElementById('ai-model-input');
+      const epEl = document.getElementById('ai-endpoint-input');
+      const keyEl = document.getElementById('ai-api-key');
+      const remEl = document.getElementById('ai-remember-key');
+      const txtEl = document.getElementById('ai-input-text');
+      const extraEl = document.getElementById('ai-extra-instructions');
+
+      if (provEl) state.aiImport.provider = provEl.value;
+      if (modelEl) state.aiImport.model = modelEl.value.trim();
+      if (epEl) state.aiImport.customEndpoint = epEl.value.trim();
+      if (keyEl) state.aiImport.apiKey = keyEl.value.trim();
+      if (remEl) state.aiImport.rememberKey = !!remEl.checked;
+      if (txtEl) state.aiImport.rawInput = txtEl.value;
+      if (extraEl) state.aiImport.extraInstructions = extraEl.value;
+
+      state.config.ai = {
+        provider: state.aiImport.provider,
+        model: state.aiImport.model || (AI_PROVIDER_DEFAULTS[state.aiImport.provider]?.defaultModel || ''),
+        customEndpoint: state.aiImport.customEndpoint || ''
+      };
+      persistConfig(false);
+      persistAiKeyChoice();
+    }
+
+    async function handleAiAttachFile(file) {
+      if (!file) return;
+      syncAiInputsFromDom();
+      state.aiImport.error = '';
+      state.aiImport.attachedFileName = file.name;
+      const lower = file.name.toLowerCase();
+
+      try {
+        if (lower.endsWith('.xlsx')) {
+          const buf = await file.arrayBuffer();
+          const sheets = await parseXlsxSheets(buf);
+          if (sheets.length === 0) throw new Error('No worksheets found inside .xlsx file.');
+          state.aiImport.rawInput = formatSheetsForAiPrompt(sheets, file.name);
+        } else {
+          const buf = await file.arrayBuffer();
+          const text = decodeTextBytes(buf);
+          state.aiImport.rawInput = text.slice(0, 35000) + (text.length > 35000 ? '\n\n[Truncated at 35,000 characters]' : '');
+        }
+        setStatus(`Loaded "${file.name}" into AI input`, 'ok');
+        render(false);
+      } catch (err) {
+        state.aiImport.error = 'Could not read attached file: ' + (err?.message || err);
+        render(false);
+      }
+    }
+
+    async function runAiSmartImport() {
+      syncAiInputsFromDom();
+      const ai = state.aiImport;
+      const sourceText = String(ai.rawInput || '').trim();
+      if (!sourceText) {
+        ai.error = 'Paste some text or attach a file before generating.';
+        render(true);
+        return;
+      }
+
+      ai.error = '';
+      ai.loading = true;
+      ai.generatedTests = [];
+      ai.droppedLabels = [];
+      ai.droppedComponents = [];
+      setStatus('Calling AI API to structure test cases…');
+      render(false);
+
+      try {
+        const schema = buildAiImportSchema(state.config);
+        const systemPrompt = buildAiSystemPrompt(state.config, activeProject(), ai.extraInstructions);
+        const req = buildAiProviderRequest({
+          provider: ai.provider,
+          apiKey: ai.apiKey,
+          model: ai.model,
+          customEndpoint: ai.customEndpoint,
+          systemPrompt,
+          userPrompt: sourceText,
+          schema
+        });
+
+        const res = await fetch(req.url, {
+          method: 'POST',
+          headers: req.headers,
+          body: JSON.stringify(req.body)
+        });
+
+        const rawBody = await res.text();
+        let json;
+        try { json = JSON.parse(rawBody); } catch (_e) { json = null; }
+
+        if (!res.ok) {
+          const apiErrMsg = json?.error?.message || json?.message || rawBody.slice(0, 260) || `HTTP ${res.status}`;
+          throw new Error(`API error (${res.status}): ${apiErrMsg}`);
+        }
+
+        const textOut = extractAiResponseText(ai.provider, json);
+        if (!textOut) throw new Error('Model returned an empty response.');
+
+        const parsedResult = parseAiImportedTests(textOut, state.config);
+        ai.generatedTests = parsedResult.tests;
+        ai.droppedLabels = parsedResult.droppedLabels;
+        ai.droppedComponents = parsedResult.droppedComponents;
+        ai.showSettings = false;
+        ai.loading = false;
+        setStatus(`AI generated ${parsedResult.tests.length} test case(s) — review and Append or Replace`, 'ok');
+        render(false);
+      } catch (err) {
+        ai.loading = false;
+        const msg = err?.message || String(err);
+        ai.error = msg.includes('Failed to fetch')
+          ? `${msg} (Check internet access, endpoint URL, or CORS policy on this endpoint.)`
+          : msg;
+        setStatus('AI generation failed', 'err');
+        render(false);
+      }
+    }
+
+    function executeAiImport(replaceSuite) {
+      const generated = state.aiImport.generatedTests || [];
+      if (generated.length === 0) return;
+      const imported = deepClone(generated);
+      pushUndo();
+      if (replaceSuite) {
+        state.tests = imported;
+        state.activeTestIdx = 0;
+      } else {
+        const existingIds = new Set(state.tests.map(t => t.id));
+        imported.forEach(t => {
+          while (existingIds.has(t.id)) {
+            t.id = 'TC-' + String(state.tests.length + 1).padStart(2, '0');
+          }
+          existingIds.add(t.id);
+          state.tests.push(t);
+        });
+        state.activeTestIdx = state.tests.length - imported.length;
+      }
+      state.row = 0;
+      state.col = 0;
+      clampCursor();
+      persistSuite();
+      state.aiImport.generatedTests = [];
+      closeModal(`Imported ${imported.length} AI-generated test case(s) into ${activeProject().name}`);
     }
 
     async function handleImportFile(file) {
@@ -3585,92 +4135,267 @@
 
     function renderImportModal() {
       const imp = state.importState;
-      const fields = [
-        ['tcid', 'TCID (Test Case ID)'],
-        ['summary', 'Test Summary'],
-        ['priority', 'Priority (1/2/3 or High/Med/Low)'],
-        ['labels', 'Labels (;-separated)'],
-        ['components', 'Components (;-separated)'],
-        ['requirement', 'Requirement / Story'],
-        ['action', 'Step Action'],
-        ['data', 'Step Data'],
-        ['expected', 'Step Expected Result']
-      ];
-      const headers = imp.rows[0] || [];
+      const ai = state.aiImport;
+      const isAiTab = imp.tab !== 'structured';
+      const provDef = AI_PROVIDER_DEFAULTS[ai.provider] || AI_PROVIDER_DEFAULTS.gemini;
 
-      return `
-        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Import Excel or CSV">
-          <div class="modal-card wide">
-            <div class="modal-head">
-              <span class="modal-title">Import Excel (.xlsx), CSV, JSON Draft, or Paste from Excel</span>
-              <button type="button" onclick="closeModal('Closed import')">Close <kbd>Esc</kbd></button>
-            </div>
-            <div class="modal-body">
-              <div class="two-col">
-                <div class="section-box">
-                  <div style="font-weight:700">1. Choose a file (.xlsx, .csv, .tsv, .json)</div>
-                  <input id="import-file-input" type="file" accept=".xlsx,.csv,.tsv,.txt,.json" onchange="handleImportFile(this.files[0])" />
-                  <div class="muted" style="font-size:12px">Runs 100% offline in your browser. Auto-fixes duplicate summaries and encoding quirks.</div>
-                </div>
-                <div class="section-box">
-                  <div style="font-weight:700">2. Or paste cells directly from Excel</div>
-                  <textarea id="import-paste-box" rows="3" placeholder="Click here and press Ctrl+V to paste rows copied from Excel..." oninput="handlePastedImportText(this.value)"></textarea>
-                </div>
+      const tabsHeader = `
+        <div style="display:flex;gap:6px;border-bottom:1px solid var(--border);padding-bottom:8px">
+          <button
+            type="button"
+            class="${isAiTab ? 'primary' : ''}"
+            onclick="switchImportTab('ai')"
+          >AI Smart Import (Any Text / Spec / Messy Excel)</button>
+          <button
+            type="button"
+            class="${!isAiTab ? 'primary' : ''}"
+            onclick="switchImportTab('structured')"
+          >Structured Excel / CSV / JSON</button>
+        </div>
+      `;
+
+      let bodyHtml = '';
+      let footHtml = '';
+
+      if (isAiTab) {
+        const keyStatusText = ai.apiKey
+          ? `Key in ${ai.rememberKey ? 'browser storage' : 'session only'}`
+          : 'No API key set';
+
+        const settingsPanel = ai.showSettings
+          ? `
+            <div class="section-box" style="border-color:var(--border-strong)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                <strong>AI Provider Settings (BYOK — stays in your browser only)</strong>
+                ${ai.apiKey ? `<button type="button" onclick="syncAiInputsFromDom();state.aiImport.showSettings=false;render(false)">Done</button>` : ''}
               </div>
+              <div style="display:grid;grid-template-columns:180px 1fr 1fr;gap:8px">
+                <label style="display:flex;flex-direction:column;gap:2px">
+                  <span class="muted">Provider</span>
+                  <select id="ai-provider-select" onchange="updateAiProvider(this.value)">
+                    ${Object.entries(AI_PROVIDER_DEFAULTS).map(([k, v]) => `<option value="${k}" ${ai.provider === k ? 'selected' : ''}>${escHtml(v.label)}</option>`).join('')}
+                  </select>
+                </label>
+                <label style="display:flex;flex-direction:column;gap:2px">
+                  <span class="muted">Model</span>
+                  <input id="ai-model-input" type="text" list="ai-model-list" value="${escHtml(ai.model)}" oninput="state.aiImport.model=this.value" placeholder="${escHtml(provDef.defaultModel)}" />
+                  <datalist id="ai-model-list">
+                    ${(provDef.models || []).map(m => `<option value="${escHtml(m)}"></option>`).join('')}
+                  </datalist>
+                </label>
+                <label style="display:flex;flex-direction:column;gap:2px">
+                  <span class="muted">API Key</span>
+                  <input id="ai-api-key" type="password" value="${escHtml(ai.apiKey)}" oninput="state.aiImport.apiKey=this.value" onblur="syncAiInputsFromDom()" placeholder="${ai.provider === 'gemini' ? 'AIza...' : 'sk-...'}" />
+                </label>
+              </div>
+              ${ai.provider === 'custom' ? `
+                <label style="display:flex;flex-direction:column;gap:2px">
+                  <span class="muted">Custom OpenAI-Compatible Chat Completions Endpoint</span>
+                  <input id="ai-endpoint-input" type="text" value="${escHtml(ai.customEndpoint)}" oninput="state.aiImport.customEndpoint=this.value" placeholder="https://your-gateway.example.com/v1/chat/completions" />
+                </label>
+              ` : ''}
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                  <input id="ai-remember-key" type="checkbox" ${ai.rememberKey ? 'checked' : ''} onchange="syncAiInputsFromDom()" />
+                  <span>Remember API key in this browser (otherwise cleared when tab closes; never saved to project files)</span>
+                </label>
+                ${ai.apiKey ? `<button type="button" class="danger" onclick="clearStoredAiKey()">Clear Key</button>` : ''}
+              </div>
+            </div>
+          `
+          : `
+            <div class="banner">
+              <span><strong>${escHtml(provDef.label)}</strong> · <span class="mono">${escHtml(ai.model || provDef.defaultModel)}</span> · ${escHtml(keyStatusText)}</span>
+              <button type="button" onclick="state.aiImport.showSettings=true;render(false)">Configure Key / Model</button>
+            </div>
+          `;
 
-              ${imp.error ? `<div class="banner err">${escHtml(imp.error)}</div>` : ''}
+        const dropNotice = (ai.droppedLabels.length > 0 || ai.droppedComponents.length > 0)
+          ? `<div class="banner warn">
+               <span>Filtered out tags not in Central Config (${[...ai.droppedLabels, ...ai.droppedComponents].map(escHtml).join(', ')}).</span>
+             </div>`
+          : '';
 
-              ${imp.rows.length > 0 ? `
-                <div class="section-box">
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-                    <strong>Loaded ${imp.rows.length} row(s) from ${escHtml(imp.sourceName)}</strong>
-                    <div style="display:flex;align-items:center;gap:8px">
-                      ${imp.sheets.length > 1 ? `
-                        <label>Sheet:
-                          <select onchange="selectImportSheet(Number(this.value))">
-                            ${imp.sheets.map((s, idx) => `<option value="${idx}" ${idx === imp.sheetIdx ? 'selected' : ''}>${escHtml(s.name)}</option>`).join('')}
-                          </select>
-                        </label>
-                      ` : ''}
-                      <label style="display:flex;align-items:center;gap:5px">
-                        <input type="checkbox" ${imp.hasHeaderRow ? 'checked' : ''} onchange="state.importState.hasHeaderRow=this.checked;render(false)" />
-                        <span>First row is headers</span>
-                      </label>
+        const totalSteps = ai.generatedTests.reduce((acc, t) => acc + (t.steps ? t.steps.length : 0), 0);
+
+        const previewHtml = ai.generatedTests.length > 0
+          ? `
+            <div class="section-box">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <strong>Generated ${ai.generatedTests.length} test case(s) · ${totalSteps} step(s)</strong>
+                <span class="muted">Constrained to Central Config Priorities (1/2/3), Labels &amp; Components</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;max-height:210px;overflow-y:auto">
+                ${ai.generatedTests.map(t => `
+                  <div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;background:var(--surface)">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                      <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                        <span class="mono" style="font-weight:700">${escHtml(t.id)}</span>
+                        <strong>${escHtml(t.summary)}</strong>
+                        ${t.requirement ? `<span class="chip comp mono">${escHtml(t.requirement)}</span>` : ''}
+                      </div>
+                      <span class="prio-badge ${prioClass(t.priority)}">P${escHtml(t.priority)}</span>
+                    </div>
+                    <div class="chip-row" style="margin-top:4px">
+                      ${(t.labels || []).map(l => `<span class="chip label">${escHtml(l)}</span>`).join('')}
+                      ${(t.components || []).map(c => `<span class="chip comp">${escHtml(c)}</span>`).join('')}
+                    </div>
+                    <div style="margin-top:6px;display:flex;flex-direction:column;gap:2px;font-size:12px">
+                      ${(t.steps || []).map((s, sIdx) => `
+                        <div class="muted">
+                          <span class="mono">${sIdx + 1}.</span>
+                          <span style="color:var(--text)">${escHtml(s.action || '(no action)')}</span>
+                          ${s.data ? `<span class="mono"> [${escHtml(s.data)}]</span>` : ''}
+                          ${s.expected ? ` → <span>${escHtml(s.expected)}</span>` : ''}
+                        </div>
+                      `).join('')}
                     </div>
                   </div>
-
-                  <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px">
-                    ${fields.map(([key, label]) => `
-                      <label style="display:flex;flex-direction:column;gap:2px">
-                        <span class="muted">${escHtml(label)}</span>
-                        <select onchange="updateImportMapping('${key}', this.value)">
-                          <option value="-1">(Ignore / Not present)</option>
-                          ${headers.map((h, idx) => `<option value="${idx}" ${imp.mapping[key] === idx ? 'selected' : ''}>Col ${idx + 1}: ${escHtml(h || '(blank)')}</option>`).join('')}
-                        </select>
-                      </label>
-                    `).join('')}
-                  </div>
-
-                  <div style="overflow:auto;max-height:130px">
-                    <table class="map-table">
-                      <thead>
-                        <tr>${headers.map((h, idx) => `<th>Col ${idx + 1}: ${escHtml(h)}</th>`).join('')}</tr>
-                      </thead>
-                      <tbody>
-                        ${imp.rows.slice(imp.hasHeaderRow ? 1 : 0, 5).map(r => `<tr>${headers.map((_h, idx) => `<td>${escHtml(r[idx] || '')}</td>`).join('')}</tr>`).join('')}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ` : ''}
-            </div>
-            <div class="modal-foot">
-              <span class="muted">Duplicates on step 2+ rows are cleaned automatically on import.</span>
-              <div style="display:flex;gap:6px">
-                <button type="button" ${imp.rows.length === 0 ? 'disabled' : ''} onclick="executeImport(false)">Append to Suite</button>
-                <button type="button" class="primary" ${imp.rows.length === 0 ? 'disabled' : ''} onclick="executeImport(true)">Replace Suite</button>
+                `).join('')}
               </div>
             </div>
+          `
+          : '';
+
+        bodyHtml = `
+          ${tabsHeader}
+          ${settingsPanel}
+          <div class="section-box">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <strong>Paste any specs, user stories, emails, bullet notes, or attach a messy spreadsheet</strong>
+              <label style="display:inline-flex">
+                <input type="file" accept=".xlsx,.csv,.tsv,.txt,.md,.json" style="display:none" onchange="handleAiAttachFile(this.files[0])" />
+                <span style="padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);cursor:pointer;font-size:12px">Attach File (.xlsx / .csv / .txt)</span>
+              </label>
+            </div>
+            <textarea
+              id="ai-input-text"
+              rows="5"
+              oninput="state.aiImport.rawInput=this.value"
+              placeholder="Paste Jira ticket description, acceptance criteria, meeting notes, email thread, or messy Excel rows..."
+            >${escHtml(ai.rawInput)}</textarea>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input
+                id="ai-extra-instructions"
+                type="text"
+                value="${escHtml(ai.extraInstructions)}"
+                oninput="state.aiImport.extraInstructions=this.value"
+                placeholder="Optional hint (e.g. 'Include edge cases', 'Write in German', 'Link to SHOP-310')..."
+                style="flex:1;min-width:220px"
+              />
+              <button
+                type="button"
+                class="primary"
+                ${ai.loading ? 'disabled' : ''}
+                onclick="runAiSmartImport()"
+              >${ai.loading ? 'Generating…' : 'Generate Test Cases with AI'} <kbd>Ctrl+Enter</kbd></button>
+            </div>
+          </div>
+          ${ai.error ? `<div class="banner err">${escHtml(ai.error)}</div>` : ''}
+          ${dropNotice}
+          ${previewHtml}
+        `;
+
+        footHtml = `
+          <span class="muted">AI matches your Central Config Labels, Components &amp; Priorities (1/2/3).</span>
+          <div style="display:flex;gap:6px">
+            <button type="button" ${ai.generatedTests.length === 0 ? 'disabled' : ''} onclick="executeAiImport(false)">Append to Suite</button>
+            <button type="button" class="primary" ${ai.generatedTests.length === 0 ? 'disabled' : ''} onclick="executeAiImport(true)">Replace Suite</button>
+          </div>
+        `;
+      } else {
+        const fields = [
+          ['tcid', 'TCID (Test Case ID)'],
+          ['summary', 'Test Summary'],
+          ['priority', 'Priority (1/2/3 or High/Med/Low)'],
+          ['labels', 'Labels (;-separated)'],
+          ['components', 'Components (;-separated)'],
+          ['requirement', 'Requirement / Story'],
+          ['action', 'Step Action'],
+          ['data', 'Step Data'],
+          ['expected', 'Step Expected Result']
+        ];
+        const headers = imp.rows[0] || [];
+
+        bodyHtml = `
+          ${tabsHeader}
+          <div class="two-col">
+            <div class="section-box">
+              <div style="font-weight:700">1. Choose a file (.xlsx, .csv, .tsv, .json)</div>
+              <input id="import-file-input" type="file" accept=".xlsx,.csv,.tsv,.txt,.json" onchange="handleImportFile(this.files[0])" />
+              <div class="muted" style="font-size:12px">Runs 100% offline in your browser. Auto-fixes duplicate summaries and encoding quirks.</div>
+            </div>
+            <div class="section-box">
+              <div style="font-weight:700">2. Or paste cells directly from Excel</div>
+              <textarea id="import-paste-box" rows="3" placeholder="Click here and press Ctrl+V to paste rows copied from Excel..." oninput="handlePastedImportText(this.value)"></textarea>
+            </div>
+          </div>
+
+          ${imp.error ? `<div class="banner err">${escHtml(imp.error)}</div>` : ''}
+
+          ${imp.rows.length > 0 ? `
+            <div class="section-box">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                <strong>Loaded ${imp.rows.length} row(s) from ${escHtml(imp.sourceName)}</strong>
+                <div style="display:flex;align-items:center;gap:8px">
+                  ${imp.sheets.length > 1 ? `
+                    <label>Sheet:
+                      <select onchange="selectImportSheet(Number(this.value))">
+                        ${imp.sheets.map((s, idx) => `<option value="${idx}" ${idx === imp.sheetIdx ? 'selected' : ''}>${escHtml(s.name)}</option>`).join('')}
+                      </select>
+                    </label>
+                  ` : ''}
+                  <label style="display:flex;align-items:center;gap:5px">
+                    <input type="checkbox" ${imp.hasHeaderRow ? 'checked' : ''} onchange="state.importState.hasHeaderRow=this.checked;render(false)" />
+                    <span>First row is headers</span>
+                  </label>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:8px">
+                ${fields.map(([key, label]) => `
+                  <label style="display:flex;flex-direction:column;gap:2px">
+                    <span class="muted">${escHtml(label)}</span>
+                    <select onchange="updateImportMapping('${key}', this.value)">
+                      <option value="-1">(Ignore / Not present)</option>
+                      ${headers.map((h, idx) => `<option value="${idx}" ${imp.mapping[key] === idx ? 'selected' : ''}>Col ${idx + 1}: ${escHtml(h || '(blank)')}</option>`).join('')}
+                    </select>
+                  </label>
+                `).join('')}
+              </div>
+
+              <div style="overflow:auto;max-height:130px">
+                <table class="map-table">
+                  <thead>
+                    <tr>${headers.map((h, idx) => `<th>Col ${idx + 1}: ${escHtml(h)}</th>`).join('')}</tr>
+                  </thead>
+                  <tbody>
+                    ${imp.rows.slice(imp.hasHeaderRow ? 1 : 0, 5).map(r => `<tr>${headers.map((_h, idx) => `<td>${escHtml(r[idx] || '')}</td>`).join('')}</tr>`).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ` : ''}
+        `;
+
+        footHtml = `
+          <span class="muted">Duplicates on step 2+ rows are cleaned automatically on import.</span>
+          <div style="display:flex;gap:6px">
+            <button type="button" ${imp.rows.length === 0 ? 'disabled' : ''} onclick="executeImport(false)">Append to Suite</button>
+            <button type="button" class="primary" ${imp.rows.length === 0 ? 'disabled' : ''} onclick="executeImport(true)">Replace Suite</button>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Import Test Cases">
+          <div class="modal-card wide">
+            <div class="modal-head">
+              <span class="modal-title">Import Test Cases</span>
+              <button type="button" onclick="closeModal('Closed import')">Close <kbd>Esc</kbd></button>
+            </div>
+            <div class="modal-body">${bodyHtml}</div>
+            <div class="modal-foot">${footHtml}</div>
           </div>
         </div>
       `;
@@ -3937,7 +4662,7 @@
                   ${row('[ / ] / t', 'Prev / next / new test case')}
                   ${row('u / Ctrl+Y', 'Undo / Redo')}
                   ${row('Ctrl+S', 'Save to folder (or download .json)')}
-                  ${row('/ · g · i · e', 'Palette · Config · Import · Export CSV')}
+                  ${row('/ · g · i · e', 'Palette · Config · AI/File Import · CSV')}
                 </div>
               </div>
             </div>
@@ -3986,7 +4711,17 @@
         if (state.modal === 'palette') document.getElementById('palette-input')?.focus();
         else if (state.modal === 'labels' || state.modal === 'components') document.getElementById('picker-filter')?.focus();
         else if (state.modal === 'config') document.getElementById('cfg-add-label')?.focus();
-        else if (state.modal === 'import') document.getElementById('import-paste-box')?.focus();
+        else if (state.modal === 'import') {
+          if (state.importState.tab !== 'structured') {
+            if (!state.aiImport.apiKey && document.getElementById('ai-api-key')) {
+              document.getElementById('ai-api-key')?.focus();
+            } else {
+              document.getElementById('ai-input-text')?.focus();
+            }
+          } else {
+            document.getElementById('import-paste-box')?.focus();
+          }
+        }
         else if (state.modal === 'projects') {
           if (state.projectsModal.submode === 'new' || state.projectsModal.submode === 'rename') {
             document.getElementById('proj-name-input')?.focus();
@@ -4190,6 +4925,13 @@
           } else if (key === 'Enter') {
             e.preventDefault();
             applyPickerSelection();
+          }
+          return;
+        }
+        if (state.modal === 'import') {
+          if (state.importState.tab !== 'structured' && key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            runAiSmartImport();
           }
           return;
         }
