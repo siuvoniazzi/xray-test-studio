@@ -766,9 +766,196 @@
       font-size: 12px;
     }
 
+    /* Mode Switch & Decluttered UI Styling */
+    .mode-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .mode-switch button {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 3px 9px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .mode-switch button:hover:not(:disabled) {
+      background: var(--surface-2);
+      border-color: transparent;
+      color: var(--text);
+    }
+
+    .mode-switch button.active {
+      background: var(--surface-3);
+      color: var(--text);
+      font-weight: 700;
+      border-color: var(--border);
+    }
+
+    .topbar kbd, .sidebar-head kbd, .meta-panel kbd {
+      font-size: 10px;
+      padding: 1px 4px;
+      border-color: transparent;
+      background: rgba(127, 138, 158, 0.14);
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    button.link-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 4px 8px;
+      font-size: 12.5px;
+      border-radius: 6px;
+    }
+
+    button.link-btn:hover:not(:disabled) {
+      background: var(--surface-2);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    /* Simple (Business Agent) Quiet Workspace */
+    .shell.mode-simple .topbar {
+      padding: 10px 18px;
+    }
+
+    .shell.mode-simple .workspace {
+      grid-template-columns: 248px 1fr;
+    }
+
+    .shell.mode-simple .sidebar-head {
+      padding: 12px 14px;
+    }
+
+    .shell.mode-simple .test-list {
+      padding: 10px 8px;
+      gap: 3px;
+    }
+
+    .shell.mode-simple .test-card {
+      border-color: transparent;
+      background: transparent;
+      padding: 9px 11px;
+      gap: 3px;
+      border-radius: 8px;
+    }
+
+    .shell.mode-simple .test-card:hover {
+      background: var(--surface-2);
+    }
+
+    .shell.mode-simple .test-card.active {
+      background: var(--primary-bg);
+      border-color: rgba(78, 161, 255, 0.35);
+    }
+
+    .shell.mode-simple .main-pane {
+      background: var(--bg);
+    }
+
+    .shell.mode-simple .meta-panel {
+      background: transparent;
+      border-bottom: none;
+      padding: 22px 28px 10px;
+      align-items: center;
+    }
+
+    .simple-doc {
+      width: 100%;
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    .simple-kicker {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .simple-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      line-height: 1.3;
+      padding: 4px 8px;
+      margin-left: -8px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: inline-block;
+      max-width: 100%;
+    }
+
+    .simple-title:hover {
+      border-color: var(--border);
+      background: var(--surface);
+    }
+
+    .simple-title-input {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      padding: 5px 10px;
+      width: 100%;
+      max-width: 720px;
+    }
+
+    .shell.mode-simple .grid-wrap {
+      padding: 6px 28px 28px;
+    }
+
+    .shell.mode-simple .grid-table {
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .shell.mode-simple .grid-cell,
+    .shell.mode-simple .grid-col-header,
+    .shell.mode-simple .grid-row-num {
+      padding: 12px 14px;
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+
+    .shell.mode-simple .grid-cell {
+      min-height: 44px;
+    }
+
+    .shell.mode-simple .grid-cell.empty {
+      font-style: normal;
+      color: var(--text-faint);
+    }
+
+    .simple-actions {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .shell.mode-simple .footer {
+      padding: 7px 18px;
+    }
+
     @media (max-width: 820px) {
       .workspace { grid-template-columns: 1fr; }
+      .shell.mode-simple .workspace { grid-template-columns: 1fr; }
       .sidebar { max-height: 170px; border-right: none; border-bottom: 1px solid var(--border); }
+      .shell.mode-simple .meta-panel, .shell.mode-simple .grid-wrap { padding-left: 14px; padding-right: 14px; }
       .two-col { grid-template-columns: 1fr; }
     }
   </style>
@@ -810,6 +997,7 @@
   ],
   "defaultPriority": "2",
   "defaultTestType": "Manual",
+  "defaultUiMode": "simple",
   "csvDelimiter": ",",
   "listDelimiter": ";",
   "includeUtf8Bom": true,
@@ -851,6 +1039,7 @@
     const STORAGE_THEME_KEY = 'xrayStudio.theme.v1';
     const STORAGE_AI_KEY = 'xrayStudio.aiKey.v1';
     const STORAGE_ONBOARDED_KEY = 'xrayStudio.onboarded.v1';
+    const STORAGE_UI_MODE_KEY = 'xrayStudio.uiMode.v1';
 
     /* =========================================================================
        PURE CORE ENGINE (CSV, XLSX, Validation, Config Serialization)
@@ -883,6 +1072,7 @@
       }
       if (raw.defaultPriority) cfg.defaultPriority = String(raw.defaultPriority).trim();
       if (raw.defaultTestType) cfg.defaultTestType = String(raw.defaultTestType).trim();
+      if (raw.defaultUiMode === 'simple' || raw.defaultUiMode === 'expert') cfg.defaultUiMode = raw.defaultUiMode;
       if (raw.csvDelimiter === ',' || raw.csvDelimiter === ';') cfg.csvDelimiter = raw.csvDelimiter;
       if (typeof raw.listDelimiter === 'string' && raw.listDelimiter.length > 0) cfg.listDelimiter = raw.listDelimiter;
       if (typeof raw.includeUtf8Bom === 'boolean') cfg.includeUtf8Bom = raw.includeUtf8Bom;
@@ -931,6 +1121,19 @@
         key,
         label: (config.headers && config.headers[key]) || key
       }));
+    }
+
+    function getEffectiveStepColumns(config, uiMode, test, simpleShowData = false) {
+      if (uiMode === 'simple') {
+        const hasAnyData = !!(test && Array.isArray(test.steps) && test.steps.some(s => String((s && s.data) || '').trim() !== ''));
+        const showData = !!simpleShowData || hasAnyData;
+        const keys = showData ? ['action', 'data', 'expected'] : ['action', 'expected'];
+        return keys.map(key => ({
+          key,
+          label: (config && config.headers && config.headers[key]) || key
+        }));
+      }
+      return getVisibleStepColumns(config);
     }
 
     function formatMultiValue(items, listDelimiter) {
@@ -1913,6 +2116,33 @@
 
     /* --- Onboarding & Interactive Tutorial State Machine --- */
 
+    const SIMPLE_TOUR_STEPS = [
+      {
+        id: 'move',
+        target: 'grid',
+        title: '1. Navigate Your Steps',
+        keys: ['↑', '↓', '←', '→'],
+        desc: 'Use the Arrow keys to move between Action and Expected Result cells.',
+        event: 'navigate'
+      },
+      {
+        id: 'edit',
+        target: 'grid',
+        title: '2. Write & Add Steps Fast',
+        keys: ['Enter', 'Tab'],
+        desc: 'Press Enter to write, then Tab to save and jump to the next cell (auto-adds new steps at the end).',
+        event: 'edit-commit'
+      },
+      {
+        id: 'mode-switch',
+        target: 'mode-switch',
+        title: '3. Simple vs. Expert View',
+        keys: ['v'],
+        desc: 'Need Priority, Labels, AI Import, or CSV Export? Press v or click Expert in the top bar anytime.',
+        event: 'toggle-mode'
+      }
+    ];
+
     const TOUR_STEPS = [
       {
         id: 'move',
@@ -1975,11 +2205,12 @@
       }
     ];
 
-    function advanceTourState(tourState, eventName) {
+    function advanceTourState(tourState, eventName, steps = TOUR_STEPS) {
       if (!tourState || !tourState.active || tourState.completed) {
         return { nextTour: tourState, stepJustCompleted: false, tourJustFinished: false };
       }
-      const step = TOUR_STEPS[tourState.stepIdx];
+      const list = Array.isArray(steps) && steps.length > 0 ? steps : TOUR_STEPS;
+      const step = list[tourState.stepIdx];
       if (!step) {
         return { nextTour: tourState, stepJustCompleted: false, tourJustFinished: false };
       }
@@ -2005,7 +2236,7 @@
         stepCompleted = true;
       }
 
-      const isLast = tourState.stepIdx >= TOUR_STEPS.length - 1;
+      const isLast = tourState.stepIdx >= list.length - 1;
       if (isLast) {
         nextTour.completed = true;
         nextTour.justCompletedStep = false;
@@ -2045,6 +2276,7 @@
       ],
       defaultPriority: '2',
       defaultTestType: 'Manual',
+      defaultUiMode: 'simple',
       csvDelimiter: ',',
       listDelimiter: ';',
       includeUtf8Bom: true,
@@ -2168,6 +2400,13 @@
 
     const initialWorkspace = loadInitialProjects(BAKED_CONFIG);
     const initialConfig = loadInitialConfig();
+    const initialUiMode = (() => {
+      try {
+        const saved = localStorage.getItem(STORAGE_UI_MODE_KEY);
+        if (saved === 'simple' || saved === 'expert') return saved;
+      } catch (_e) {}
+      return initialConfig.defaultUiMode === 'expert' ? 'expert' : 'simple';
+    })();
     const folderWriteQueue = createSerializedWriteQueue();
     let folderSaveTimer = null;
 
@@ -2194,6 +2433,8 @@
 
     const state = {
       config: initialConfig,
+      uiMode: initialUiMode, // 'simple' | 'expert'
+      simpleShowData: false,
       projects: initialWorkspace.projects,
       activeProjectIdx: initialWorkspace.activeProjectIdx,
       activeTestIdx: 0,
@@ -2206,7 +2447,9 @@
       undoStack: [],
       redoStack: [],
       theme: initialTheme,
-      statusMsg: 'Keyboard-ready — press ? for shortcuts, w for Projects, i for AI Import',
+      statusMsg: initialUiMode === 'simple'
+        ? 'Arrows move · Enter write · Tab add step · v Expert mode'
+        : 'Keyboard-ready — press ? for shortcuts, w for Projects, i for AI Import',
       statusTone: '',
       paletteQuery: '',
       paletteIdx: 0,
@@ -2762,7 +3005,7 @@
       state.activeTestIdx = Math.max(0, Math.min(state.activeTestIdx, state.tests.length - 1));
       const t = activeTest();
       if (!t.steps || t.steps.length === 0) t.steps = [{ action: '', data: '', expected: '' }];
-      const cols = getVisibleStepColumns(state.config);
+      const cols = getEffectiveStepColumns(state.config, state.uiMode, t, state.simpleShowData);
       state.row = Math.max(0, Math.min(state.row, t.steps.length - 1));
       state.col = Math.max(0, Math.min(state.col, cols.length - 1));
     }
@@ -2772,9 +3015,61 @@
       state.statusTone = tone;
     }
 
+    function setUiMode(mode) {
+      const nextMode = mode === 'expert' ? 'expert' : 'simple';
+      if (state.mode === 'edit') {
+        commitCellEdit('stay');
+      } else if (state.mode === 'summary' || state.mode === 'requirement') {
+        commitMetaEdit();
+      }
+      state.uiMode = nextMode;
+      try { localStorage.setItem(STORAGE_UI_MODE_KEY, nextMode); } catch (_e) {}
+
+      if (state.tour && state.tour.active && !state.tour.completed) {
+        const activeSteps = getActiveTourSteps();
+        const curStep = activeSteps[state.tour.stepIdx];
+        if (curStep && curStep.event === 'toggle-mode') {
+          notifyTourEvent('toggle-mode');
+        } else if (state.tour.mode !== nextMode) {
+          if (tourAdvanceTimer) { clearTimeout(tourAdvanceTimer); tourAdvanceTimer = null; }
+          state.tour.active = false;
+          state.tour.completed = false;
+          state.tour.justCompletedStep = false;
+        }
+      }
+
+      clampCursor();
+      setStatus(
+        nextMode === 'simple'
+          ? 'Simple UI — focused on test cases & steps (press v for Expert)'
+          : 'Expert UI — Xray metadata, AI Import & CSV Export unlocked (press v for Simple)',
+        'ok'
+      );
+      render(state.mode !== 'modal');
+    }
+
+    function toggleSimpleDataColumn() {
+      const t = activeTest();
+      const hasAnyData = !!(t && Array.isArray(t.steps) && t.steps.some(s => String((s && s.data) || '').trim() !== ''));
+      if (hasAnyData && state.simpleShowData) {
+        setStatus('Test Data column stays visible while steps contain data', 'warn');
+        render(true);
+        return;
+      }
+      state.simpleShowData = !state.simpleShowData;
+      clampCursor();
+      setStatus(state.simpleShowData ? 'Showing Test Data column' : 'Hid optional Test Data column', 'ok');
+      render(true);
+    }
+
     /* --- Onboarding & Tour Runtime Controls --- */
 
     let tourAdvanceTimer = null;
+
+    function getActiveTourSteps() {
+      const mode = state.tour && state.tour.mode ? state.tour.mode : state.uiMode;
+      return mode === 'simple' ? SIMPLE_TOUR_STEPS : TOUR_STEPS;
+    }
 
     function markOnboarded() {
       try { localStorage.setItem(STORAGE_ONBOARDED_KEY, '1'); } catch (_e) {}
@@ -2782,7 +3077,19 @@
 
     function dismissWelcome() {
       markOnboarded();
-      closeModal('Ready to author tests — press Tour or ? anytime for help');
+      closeModal(
+        state.uiMode === 'simple'
+          ? 'Simple UI ready — press Enter to write steps, or v for Expert mode'
+          : 'Ready to author tests — press / or ? anytime for help'
+      );
+    }
+
+    function chooseOnboardingMode(mode, startTour = false) {
+      markOnboarded();
+      state.mode = 'nav';
+      state.modal = null;
+      setUiMode(mode);
+      if (startTour) startInteractiveTour();
     }
 
     function startInteractiveTour() {
@@ -2790,6 +3097,7 @@
       markOnboarded();
       state.tour = {
         active: true,
+        mode: state.uiMode,
         stepIdx: 0,
         completed: false,
         subDone: {},
@@ -2812,9 +3120,10 @@
 
     function stepTourManual(delta) {
       if (tourAdvanceTimer) { clearTimeout(tourAdvanceTimer); tourAdvanceTimer = null; }
+      const steps = getActiveTourSteps();
       const nextIdx = state.tour.stepIdx + delta;
       if (nextIdx < 0) return;
-      if (nextIdx >= TOUR_STEPS.length) {
+      if (nextIdx >= steps.length) {
         state.tour.completed = true;
         state.tour.justCompletedStep = false;
       } else {
@@ -2829,7 +3138,8 @@
 
     function notifyTourEvent(eventName) {
       if (!state.tour || !state.tour.active || state.tour.completed) return;
-      const res = advanceTourState(state.tour, eventName);
+      const steps = getActiveTourSteps();
+      const res = advanceTourState(state.tour, eventName, steps);
       if (res.nextTour === state.tour && !res.stepJustCompleted) return;
 
       if (!res.stepJustCompleted) {
@@ -2852,7 +3162,8 @@
     function applyTourHighlight() {
       document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'));
       if (!state.tour || !state.tour.active || state.tour.completed) return;
-      const step = TOUR_STEPS[state.tour.stepIdx];
+      const steps = getActiveTourSteps();
+      const step = steps[state.tour.stepIdx];
       if (!step || !step.target) return;
       document.querySelectorAll(`[data-tour-target="${step.target}"]`).forEach(el => el.classList.add('tour-highlight'));
     }
@@ -2867,15 +3178,20 @@
         return;
       }
 
+      const steps = getActiveTourSteps();
+
       if (state.tour.completed) {
+        const isSimpleTour = steps === SIMPLE_TOUR_STEPS;
         container.innerHTML = `
           <aside class="tour-card" aria-label="Interactive Tutorial Complete">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
               <strong style="color:var(--success)">✓ You're Ready!</strong>
-              <span class="mono muted" style="font-size:11px">7 / 7 complete</span>
+              <span class="mono muted" style="font-size:11px">${steps.length} / ${steps.length} complete</span>
             </div>
             <div class="tour-progress-bar"><div class="tour-progress-fill" style="width:100%;background:var(--success)"></div></div>
-            <div class="muted">You've tried the core keyboard workflow. Press <kbd>/</kbd> anytime for the Command Palette or <kbd>?</kbd> for all shortcuts.</div>
+            <div class="muted">${isSimpleTour
+              ? 'You\'ve got the core writing flow. Press <kbd>v</kbd> anytime to switch between Simple &amp; Expert UI, or <kbd>?</kbd> for shortcuts.'
+              : 'You\'ve tried the core keyboard workflow. Press <kbd>/</kbd> anytime for the Command Palette or <kbd>?</kbd> for all shortcuts.'}</div>
             <div style="display:flex;justify-content:flex-end;gap:6px">
               <button type="button" tabindex="-1" onclick="startInteractiveTour()">Replay Tour</button>
               <button type="button" tabindex="-1" class="primary" onclick="exitTour()">Finish Tour</button>
@@ -2885,8 +3201,8 @@
         return;
       }
 
-      const step = TOUR_STEPS[state.tour.stepIdx];
-      const pct = Math.round(((state.tour.stepIdx + (state.tour.justCompletedStep ? 1 : 0)) / TOUR_STEPS.length) * 100);
+      const step = steps[state.tour.stepIdx];
+      const pct = Math.round(((state.tour.stepIdx + (state.tour.justCompletedStep ? 1 : 0)) / steps.length) * 100);
       const subHtml = Array.isArray(step.subTasks)
         ? `<div class="tour-sub">
              ${step.subTasks.map(st => {
@@ -2899,7 +3215,7 @@
       container.innerHTML = `
         <aside class="tour-card" aria-label="Interactive Tutorial Step ${state.tour.stepIdx + 1}">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-            <span class="mono" style="font-size:11px;font-weight:700;color:var(--primary)">STEP ${state.tour.stepIdx + 1} OF ${TOUR_STEPS.length}</span>
+            <span class="mono" style="font-size:11px;font-weight:700;color:var(--primary)">STEP ${state.tour.stepIdx + 1} OF ${steps.length}</span>
             ${state.tour.justCompletedStep
               ? `<span style="color:var(--success);font-weight:700;font-size:12px">✓ Nice!</span>`
               : `<button type="button" tabindex="-1" onclick="exitTour()" style="padding:2px 7px;font-size:11px">Exit Tour</button>`}
@@ -2912,7 +3228,7 @@
             <div style="display:flex;gap:4px;flex-wrap:wrap">${step.keys.map(k => `<kbd>${escHtml(k)}</kbd>`).join('')}</div>
             <div style="display:flex;gap:5px">
               <button type="button" tabindex="-1" ${state.tour.stepIdx === 0 ? 'disabled' : ''} onclick="stepTourManual(-1)" style="padding:3px 8px">← Back</button>
-              <button type="button" tabindex="-1" class="primary" onclick="stepTourManual(1)" style="padding:3px 8px">${state.tour.stepIdx === TOUR_STEPS.length - 1 ? 'Finish' : 'Next →'}</button>
+              <button type="button" tabindex="-1" class="primary" onclick="stepTourManual(1)" style="padding:3px 8px">${state.tour.stepIdx === steps.length - 1 ? 'Finish' : 'Next →'}</button>
             </div>
           </div>
         </aside>
@@ -3141,7 +3457,7 @@
 
     function startCellEdit() {
       const t = activeTest();
-      const cols = getVisibleStepColumns(state.config);
+      const cols = getEffectiveStepColumns(state.config, state.uiMode, t, state.simpleShowData);
       const colObj = cols[state.col];
       state.editDraft = t.steps[state.row][colObj.key] || '';
       state.mode = 'edit';
@@ -3151,7 +3467,7 @@
 
     function commitCellEdit(nextAction) {
       const t = activeTest();
-      const cols = getVisibleStepColumns(state.config);
+      const cols = getEffectiveStepColumns(state.config, state.uiMode, t, state.simpleShowData);
       const colObj = cols[state.col];
       const inp = document.getElementById('cell-textarea');
       const nextVal = inp ? inp.value : state.editDraft;
@@ -3415,39 +3731,69 @@
 
     function getCommands() {
       const hidden = new Set(state.config.hiddenColumns || []);
-      return [
-        { label: 'Start Interactive Keyboard Tour (7 steps)', key: 'Tour', run: () => startInteractiveTour() },
+      const isExpert = state.uiMode === 'expert';
+      const tourSteps = getActiveTourSteps();
+      const cmds = [
+        { label: isExpert ? 'Switch to Simple UI (Business Agent)' : 'Switch to Expert UI (Test Manager)', key: 'v', run: () => { closeModal(); setUiMode(isExpert ? 'simple' : 'expert'); } },
+        { label: `Start Interactive Keyboard Tour (${tourSteps.length} steps)`, key: 'Tour', run: () => startInteractiveTour() },
         { label: 'Show Welcome Guide', key: 'Intro', run: () => openModal('welcome') },
         { label: 'Projects & Local Folder Manager', key: 'w', run: () => openProjectsModal() },
         { label: state.dirHandle ? 'Reconnect / Change Local Folder' : 'Connect Local Folder (https / localhost)', key: 'o', run: () => { closeModal(); connectLocalFolder(true); } },
         ...(state.dirHandle ? [{ label: 'Rescan Connected Local Folder', key: 'f', run: () => { closeModal(); rescanConnectedFolder(); } }] : []),
-        { label: state.dirHandle ? 'Save Now to Local Folder' : 'Download Active Project (.json)', key: 'Ctrl+S', run: () => { closeModal(); if (state.dirHandle) flushFolderSave(); else downloadActiveProjectJson(); } },
-        { label: 'Pick Labels for active test', key: 'l', run: () => openPicker('labels') },
-        { label: 'Pick Components for active test', key: 'c', run: () => openPicker('components') },
-        { label: 'Set Priority 1 (High)', key: '1', run: () => { closeModal(); setPriorityValue('1'); } },
-        { label: 'Set Priority 2 (Medium)', key: '2', run: () => { closeModal(); setPriorityValue('2'); } },
-        { label: 'Set Priority 3 (Low)', key: '3', run: () => { closeModal(); setPriorityValue('3'); } },
-        { label: 'Open Central Config (Labels, Components, Priorities)', key: 'g', run: () => openConfigModal() },
-        { label: 'AI Smart Import / Excel / CSV', key: 'i', run: () => openImportModal('ai') },
-        { label: 'Export & Validate Xray Cloud CSV', key: 'e', run: () => openModal('export') },
+        { label: state.dirHandle ? 'Save Now to Local Folder' : 'Download Active Project (.json)', key: 'Ctrl+S', run: () => { closeModal(); if (state.dirHandle) flushFolderSave(); else downloadActiveProjectJson(); } }
+      ];
+
+      if (isExpert) {
+        cmds.push(
+          { label: 'Pick Labels for active test', key: 'l', run: () => openPicker('labels') },
+          { label: 'Pick Components for active test', key: 'c', run: () => openPicker('components') },
+          { label: 'Set Priority 1 (High)', key: '1', run: () => { closeModal(); setPriorityValue('1'); } },
+          { label: 'Set Priority 2 (Medium)', key: '2', run: () => { closeModal(); setPriorityValue('2'); } },
+          { label: 'Set Priority 3 (Low)', key: '3', run: () => { closeModal(); setPriorityValue('3'); } },
+          { label: 'Open Central Config (Labels, Components, Priorities)', key: 'g', run: () => openConfigModal() },
+          { label: 'AI Smart Import / Excel / CSV', key: 'i', run: () => openImportModal('ai') },
+          { label: 'Export & Validate Xray Cloud CSV', key: 'e', run: () => openModal('export') }
+        );
+      }
+
+      cmds.push(
         { label: 'Add step below current row', key: 'n', run: () => { closeModal(); insertStepBelow(true); } },
         { label: 'Duplicate current step', key: 'd', run: () => { closeModal(); duplicateStep(); } },
         { label: 'Delete current step', key: 'Del', run: () => { closeModal(); deleteStep(); } },
         { label: 'Move step up', key: 'Alt+↑', run: () => { closeModal(); moveStep(-1); } },
-        { label: 'Move step down', key: 'Alt+↓', run: () => { closeModal(); moveStep(1); } },
-        { label: 'Move active column left', key: 'Alt+←', run: () => { closeModal(); moveColumn(-1); } },
-        { label: 'Move active column right', key: 'Alt+→', run: () => { closeModal(); moveColumn(1); } },
-        { label: (hidden.has('data') ? 'Show' : 'Hide') + ' column: Data', key: 'Cmd', run: () => { closeModal(); toggleStepColumn('data'); } },
+        { label: 'Move step down', key: 'Alt+↓', run: () => { closeModal(); moveStep(1); } }
+      );
+
+      if (isExpert) {
+        cmds.push(
+          { label: 'Move active column left', key: 'Alt+←', run: () => { closeModal(); moveColumn(-1); } },
+          { label: 'Move active column right', key: 'Alt+→', run: () => { closeModal(); moveColumn(1); } },
+          { label: (hidden.has('data') ? 'Show' : 'Hide') + ' column: Data', key: 'Cmd', run: () => { closeModal(); toggleStepColumn('data'); } }
+        );
+      } else {
+        cmds.push(
+          { label: (state.simpleShowData ? 'Hide' : 'Show') + ' Test Data column', key: 'Cmd', run: () => { closeModal(); toggleSimpleDataColumn(); } }
+        );
+      }
+
+      cmds.push(
         { label: 'New test case', key: 't', run: () => { closeModal(); createNewTest(); } },
         { label: 'Duplicate active test case', key: 'Shift+T', run: () => { closeModal(); duplicateTest(); } },
         { label: 'Delete active test case', key: 'Cmd', run: () => { closeModal(); deleteCurrentTest(); } },
-        { label: 'Edit Test Summary', key: 's', run: () => { closeModal(); startMetaEdit('summary'); } },
-        { label: 'Edit Requirement / Story Key', key: 'r', run: () => { closeModal(); startMetaEdit('requirement'); } },
+        { label: 'Rename Test Summary', key: 's', run: () => { closeModal(); startMetaEdit('summary'); } }
+      );
+
+      if (isExpert) {
+        cmds.push({ label: 'Edit Requirement / Story Key', key: 'r', run: () => { closeModal(); startMetaEdit('requirement'); } });
+      }
+
+      cmds.push(
         { label: 'Toggle Light / Dark Theme', key: 'Cmd', run: () => { state.theme = state.theme === 'light' ? 'dark' : 'light'; applyTheme(); closeModal('Switched theme to ' + state.theme); } },
         { label: 'Undo last change', key: 'u / Ctrl+Z', run: () => undo() },
         { label: 'Redo change', key: 'Ctrl+Y', run: () => redo() },
         { label: 'Keyboard Shortcuts Reference', key: '?', run: () => openModal('help') }
-      ];
+      );
+      return cmds;
     }
 
     function getFilteredCommands() {
@@ -3507,6 +3853,8 @@
       if (listDel !== null && listDel.trim()) d.listDelimiter = listDel.trim();
       const defPrio = getVal('cfg-default-prio');
       if (defPrio) d.defaultPriority = defPrio;
+      const defUi = getVal('cfg-default-ui-mode');
+      if (defUi === 'simple' || defUi === 'expert') d.defaultUiMode = defUi;
 
       (d.priorities || []).forEach((p, idx) => {
         const lbl = getVal(`cfg-prio-label-${idx}`);
@@ -3999,6 +4347,36 @@
     }
 
     function renderSidebar() {
+      const isSimple = state.uiMode === 'simple';
+
+      if (isSimple) {
+        const cards = state.tests.map((t, idx) => {
+          const active = idx === state.activeTestIdx;
+          const stepCount = (t.steps || []).length;
+          return `
+            <button
+              type="button"
+              tabindex="-1"
+              onclick="switchTest(${idx})"
+              class="test-card ${active ? 'active' : ''}"
+            >
+              <div class="truncate" style="font-weight:600;font-size:13px">${escHtml(t.summary || 'Untitled test case')}</div>
+              <div class="muted mono" style="font-size:11px">${escHtml(t.id)} · ${stepCount} ${stepCount === 1 ? 'step' : 'steps'}</div>
+            </button>
+          `;
+        }).join('');
+
+        return `
+          <aside class="sidebar" aria-label="Test Cases">
+            <div class="sidebar-head">
+              <span style="font-weight:700">Test Cases (${state.tests.length})</span>
+              <button type="button" tabindex="-1" class="link-btn" onclick="createNewTest()" title="New Test Case (t)">+ New</button>
+            </div>
+            <div class="test-list">${cards}</div>
+          </aside>
+        `;
+      }
+
       const allowedL = new Set(state.config.labels || []);
       const allowedC = new Set(state.config.components || []);
       const issuesByTest = new Map();
@@ -4034,9 +4412,7 @@
               </div>
             </div>
             <div class="truncate" style="font-weight:600">${escHtml(t.summary || '(No summary)')}</div>
-            <div class="chip-row">
-              ${chips || '<span class="faint" style="font-size:11px">No labels/components</span>'}
-            </div>
+            ${chips ? `<div class="chip-row">${chips}</div>` : ''}
           </button>
         `;
       }).join('');
@@ -4056,6 +4432,23 @@
 
     function renderMetaPanel() {
       const t = activeTest();
+
+      if (state.uiMode === 'simple') {
+        const stepCount = (t.steps || []).length;
+        const titleNode = state.mode === 'summary'
+          ? `<input id="meta-inline-input" class="simple-title-input" type="text" value="${escHtml(state.metaDraft)}" aria-label="Test Case Title" placeholder="What does this test verify?" />`
+          : `<div class="simple-title" onclick="startMetaEdit('summary')" title="Click or press s to rename test case">${escHtml(t.summary || 'Untitled test case — click or press s')}</div>`;
+
+        return `
+          <section class="meta-panel" aria-label="Test Case Title">
+            <div class="simple-doc">
+              <div class="simple-kicker">${escHtml(t.id)} · ${stepCount} ${stepCount === 1 ? 'step' : 'steps'}</div>
+              ${titleNode}
+            </div>
+          </section>
+        `;
+      }
+
       const allowedL = new Set(state.config.labels || []);
       const allowedC = new Set(state.config.components || []);
 
@@ -4087,7 +4480,7 @@
             tabindex="-1"
             onclick="setPriorityValue('${escHtml(p.value)}')"
             class="${active ? 'prio-badge ' + prioClass(p.value) : ''}"
-            style="padding:2px 7px;${active ? 'font-weight:700;' : 'opacity:0.7;'}"
+            style="padding:2px 8px;${active ? 'font-weight:700;' : 'opacity:0.7;'}"
             title="Press ${escHtml(p.value)} to set ${escHtml(p.label)}"
           >${escHtml(p.value)}</button>
         `;
@@ -4104,7 +4497,6 @@
             <div style="display:flex;align-items:center;gap:6px">
               <span class="muted">Priority:</span>
               <div style="display:flex;gap:3px">${prioBtns}</div>
-              <span class="faint">(<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>)</span>
             </div>
           </div>
 
@@ -4127,8 +4519,10 @@
 
     function renderGrid() {
       const t = activeTest();
-      const cols = getVisibleStepColumns(state.config);
-      const colTemplate = `46px repeat(${cols.length}, minmax(0, 1fr))`;
+      const isSimple = state.uiMode === 'simple';
+      const cols = getEffectiveStepColumns(state.config, state.uiMode, t, state.simpleShowData);
+      const colTemplate = `${isSimple ? '44px' : '46px'} repeat(${cols.length}, minmax(0, 1fr))`;
+      const hasAnyData = !!(t && Array.isArray(t.steps) && t.steps.some(s => String((s && s.data) || '').trim() !== ''));
 
       const headerRow = `
         <div role="row" aria-rowindex="1" data-tour-target="grid-header" class="grid-row header" style="grid-template-columns:${colTemplate}">
@@ -4136,9 +4530,9 @@
           ${cols.map((c, cIdx) => {
             const active = cIdx === state.col;
             return `
-              <div role="columnheader" aria-colindex="${cIdx + 2}" class="grid-col-header ${active ? 'active-col' : ''}">
+              <div role="columnheader" aria-colindex="${cIdx + 2}" class="grid-col-header ${!isSimple && active ? 'active-col' : ''}">
                 <span class="truncate">${escHtml(c.label)}</span>
-                ${active ? `<span class="mono" style="color:var(--primary);font-size:11px" title="Alt+← / Alt+→ to rearrange column">Alt+←/→</span>` : ''}
+                ${!isSimple && active ? `<span class="mono" style="color:var(--primary);font-size:11px;opacity:0.85" title="Press Alt+← or Alt+→ to reorder column (sets CSV order)">⇄</span>` : ''}
               </div>
             `;
           }).join('')}
@@ -4164,6 +4558,7 @@
             `;
           }
 
+          const emptyLabel = isSimple ? (isSelected ? 'Press Enter to write…' : '') : '(empty)';
           return `
             <div
               id="cell-${rIdx}-${cIdx}"
@@ -4174,7 +4569,7 @@
               aria-selected="${isSelected ? 'true' : 'false'}"
               onclick="onCellClick(${rIdx}, ${cIdx})"
               class="grid-cell ${isSelected ? 'selected' : ''} ${!val ? 'empty' : ''}"
-            >${val ? escHtml(val) : '(empty)'}</div>
+            >${val ? escHtml(val) : emptyLabel}</div>
           `;
         }).join('');
 
@@ -4186,14 +4581,31 @@
         `;
       }).join('');
 
-      return `
-        <div class="grid-wrap">
-          <div role="grid" data-tour-target="grid" aria-label="Test Steps for ${escHtml(t.id)}" class="grid-table">
-            ${headerRow}
-            ${bodyRows}
-          </div>
+      const tableHtml = `
+        <div role="grid" data-tour-target="grid" aria-label="Test Steps for ${escHtml(t.id)}" class="grid-table">
+          ${headerRow}
+          ${bodyRows}
         </div>
       `;
+
+      if (isSimple) {
+        return `
+          <div class="grid-wrap">
+            <div class="simple-doc">
+              ${tableHtml}
+              <div class="simple-actions">
+                <div style="display:flex;align-items:center;gap:4px">
+                  <button type="button" tabindex="-1" class="link-btn" onclick="insertStepBelow(true)" title="Add step below (n)">+ Add step</button>
+                  <button type="button" tabindex="-1" class="link-btn" onclick="createNewTest()" title="New test case (t)">+ New test case</button>
+                </div>
+                ${hasAnyData ? '' : `<button type="button" tabindex="-1" class="link-btn" onclick="toggleSimpleDataColumn()">${state.simpleShowData ? 'Hide Test Data column' : '+ Show Test Data column'}</button>`}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      return `<div class="grid-wrap">${tableHtml}</div>`;
     }
 
     function renderPickerModal() {
@@ -4412,6 +4824,13 @@
                     <span>Default Priority for new tests</span>
                     <select id="cfg-default-prio">
                       ${(d.priorities || []).map(p => `<option value="${escHtml(p.value)}" ${d.defaultPriority === p.value ? 'selected' : ''}>${escHtml(p.label)}</option>`).join('')}
+                    </select>
+                  </label>
+                  <label style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span>Default UI Mode for team</span>
+                    <select id="cfg-default-ui-mode">
+                      <option value="simple" ${d.defaultUiMode === 'simple' ? 'selected' : ''}>Simple (Business Agents)</option>
+                      <option value="expert" ${d.defaultUiMode === 'expert' ? 'selected' : ''}>Expert (Test Managers)</option>
                     </select>
                   </label>
                 </div>
@@ -4967,36 +5386,41 @@
 
     function renderWelcomeModal() {
       return `
-        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Welcome to Xray Cloud Test Studio">
+        <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Welcome to Xray Test Studio">
           <div class="modal-card">
             <div class="modal-head">
-              <span class="modal-title">Welcome to Xray Cloud Test Studio</span>
+              <span class="modal-title">Welcome to Xray Test Studio</span>
               <button type="button" onclick="dismissWelcome()">Skip <kbd>Esc</kbd></button>
             </div>
             <div class="modal-body">
               <div class="banner">
-                <span>Author, organize, and export <strong>Jira Xray Cloud</strong> test cases completely offline—with zero installations and full keyboard speed.</span>
+                <span>Author test cases completely offline with full keyboard speed. Pick the view that matches your role—switch anytime with <kbd>v</kbd> or the top-right toggle.</span>
               </div>
               <div class="two-col">
                 <div class="section-box">
-                  <div style="font-weight:700">1. Keyboard-First Grid</div>
-                  <div class="muted">Glide with <kbd>Arrows</kbd>, edit with <kbd>Enter</kbd>, <kbd>Tab</kbd> across cells (auto-adds steps), and reorder steps or columns with <kbd>Alt+Arrows</kbd>.</div>
+                  <div style="font-weight:700">Simple UI — Business Agents</div>
+                  <div class="muted">Clean, quiet workspace showing only Test Cases and Test Steps (Action &amp; Expected Result, plus optional Data). Zero field clutter.</div>
+                  <div style="margin-top:auto;padding-top:6px">
+                    <button type="button" onclick="chooseOnboardingMode('simple', false)">Use Simple UI</button>
+                  </div>
                 </div>
                 <div class="section-box">
-                  <div style="font-weight:700">2. Central Config &amp; AI Import</div>
-                  <div class="muted">Tag tests with <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> priority, <kbd>l</kbd> Labels, and <kbd>c</kbd> Components—or press <kbd>i</kbd> to turn any spec or messy Excel into Xray tests with AI.</div>
+                  <div style="font-weight:700">Expert UI — Test Managers</div>
+                  <div class="muted">Full Xray Cloud controls: Priorities (<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>), Labels (<kbd>l</kbd>), Components (<kbd>c</kbd>), AI Smart Import (<kbd>i</kbd>), Central Config (<kbd>g</kbd>) &amp; CSV Export (<kbd>e</kbd>).</div>
+                  <div style="margin-top:auto;padding-top:6px">
+                    <button type="button" onclick="chooseOnboardingMode('expert', false)">Use Expert UI</button>
+                  </div>
                 </div>
               </div>
-              <div class="section-box">
-                <div style="font-weight:700">3. Local Folder Sync &amp; Clean Xray CSV</div>
-                <div class="muted">Manage multiple projects (<kbd>w</kbd>), connect a local or OneDrive folder (<kbd>o</kbd> on <span class="mono">github.io</span> / <span class="mono">localhost</span>) to auto-save <span class="mono">.json</span> + <span class="mono">.xray.csv</span>, and export error-free CSVs (<kbd>e</kbd>).</div>
+              <div class="muted" style="font-size:12px">
+                Projects (<kbd>w</kbd>) and Local Folder sync (<kbd>o</kbd> on <span class="mono">github.io</span> / <span class="mono">localhost</span>) work automatically in both modes.
               </div>
             </div>
             <div class="modal-foot">
-              <span class="muted">Press <kbd>?</kbd> or click <strong>Tour</strong> anytime to replay.</span>
+              <button type="button" onclick="chooseOnboardingMode(state.uiMode, true)">Take Quick Interactive Tour</button>
               <div style="display:flex;gap:6px">
-                <button type="button" onclick="dismissWelcome()">Skip &amp; Start Editing <kbd>Esc</kbd></button>
-                <button id="welcome-start-btn" type="button" class="primary" onclick="startInteractiveTour()">Start 60-Second Interactive Tour <kbd>Enter</kbd></button>
+                <button type="button" onclick="dismissWelcome()">Skip <kbd>Esc</kbd></button>
+                <button id="welcome-start-btn" type="button" class="primary" onclick="chooseOnboardingMode('simple', false)">Start in Simple Mode <kbd>Enter</kbd></button>
               </div>
             </div>
           </div>
@@ -5005,6 +5429,7 @@
     }
 
     function renderHelpModal() {
+      const isSimple = state.uiMode === 'simple';
       const row = (k, desc) => `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0">
           <span class="muted">${desc}</span>
@@ -5015,9 +5440,10 @@
         <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Keyboard Shortcuts">
           <div class="modal-card">
             <div class="modal-head">
-              <span class="modal-title">Keyboard-Only Shortcuts</span>
+              <span class="modal-title">${isSimple ? 'Simple UI' : 'Expert UI'} Keyboard Shortcuts</span>
               <div style="display:flex;gap:6px">
-                <button type="button" class="primary" onclick="startInteractiveTour()">Replay Interactive Tour</button>
+                <button type="button" onclick="closeModal();setUiMode('${isSimple ? 'expert' : 'simple'}')">Switch to ${isSimple ? 'Expert' : 'Simple'} UI <kbd>v</kbd></button>
+                <button type="button" class="primary" onclick="startInteractiveTour()">Replay Tour</button>
                 <button type="button" onclick="closeModal('Closed shortcuts')">Close <kbd>Esc</kbd></button>
               </div>
             </div>
@@ -5026,24 +5452,26 @@
                 <div class="section-box">
                   <div style="font-weight:700">Grid Navigation &amp; Step Editing</div>
                   ${row('↑ ↓ ← →', 'Move cell focus')}
-                  ${row('Enter / F2', 'Edit active cell')}
+                  ${row('Enter / F2', 'Write / edit active cell')}
                   ${row('Tab / Shift+Tab', 'Save &amp; advance cell (auto-adds step at end)')}
                   ${row('Shift+Enter', 'New line inside cell while editing')}
                   ${row('n / Ctrl+Enter', 'Insert step below &amp; edit')}
                   ${row('d / Del', 'Duplicate / delete active step')}
                   ${row('Alt+↑ / Alt+↓', 'Move step up / down')}
-                  ${row('Alt+← / Alt+→', 'Rearrange active column left / right')}
+                  ${isSimple ? '' : row('Alt+← / Alt+→', 'Rearrange active column left / right')}
                 </div>
                 <div class="section-box">
-                  <div style="font-weight:700">Projects, Fields &amp; Export</div>
+                  <div style="font-weight:700">${isSimple ? 'Test Cases, Projects &amp; Views' : 'Projects, Fields &amp; Export'}</div>
+                  ${row('v', isSimple ? 'Switch to Expert UI (fields, AI, CSV)' : 'Switch to Simple UI (focused writing)')}
                   ${row('w / o', 'Projects manager / Connect local folder')}
-                  ${row('1 / 2 / 3 or p', 'Set Priority 1, 2, or 3')}
-                  ${row('l / c', 'Open Labels / Components picker')}
-                  ${row('s / r', 'Edit Summary / Requirement key')}
+                  ${row('s', 'Rename Test Case title / summary')}
                   ${row('[ / ] / t', 'Prev / next / new test case')}
                   ${row('u / Ctrl+Y', 'Undo / Redo')}
                   ${row('Ctrl+S', 'Save to folder (or download .json)')}
-                  ${row('/ · g · i · e', 'Palette · Config · AI/File Import · CSV')}
+                  ${row('/', 'Command Palette')}
+                  ${isSimple ? '' : row('1 / 2 / 3 / p', 'Set / cycle Priority')}
+                  ${isSimple ? '' : row('l / c / r', 'Labels / Components / Requirement')}
+                  ${isSimple ? '' : row('g · i · e', 'Central Config · AI Import · CSV Export')}
                 </div>
               </div>
             </div>
@@ -5071,7 +5499,10 @@
       if (state.mode === 'summary' || state.mode === 'requirement') {
         return '<span><kbd>Enter</kbd> Save field</span><span><kbd>Esc</kbd> Cancel</span>';
       }
-      return '<span><kbd>Arrows</kbd> Move</span><span><kbd>Enter</kbd> Edit</span><span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Priority</span><span><kbd>l</kbd> Labels</span><span><kbd>c</kbd> Components</span><span><kbd>w</kbd> Projects</span><span><kbd>o</kbd> Folder</span><span><kbd>/</kbd> Cmds</span>';
+      if (state.uiMode === 'simple') {
+        return '<span><kbd>Arrows</kbd> Move</span><span><kbd>Enter</kbd> Write</span><span><kbd>Tab</kbd> Next / new step</span><span><kbd>v</kbd> Expert mode</span>';
+      }
+      return '<span><kbd>Arrows</kbd> Move</span><span><kbd>Enter</kbd> Edit</span><span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Priority</span><span><kbd>l</kbd> Labels</span><span><kbd>c</kbd> Components</span><span><kbd>i</kbd> Import</span><span><kbd>e</kbd> Export</span><span><kbd>/</kbd> Cmds</span><span><kbd>v</kbd> Simple</span>';
     }
 
     function onCellClick(r, c) {
@@ -5142,6 +5573,7 @@
     function render(shouldFocus = false) {
       clampCursor();
       const proj = activeProject();
+      const isSimple = state.uiMode === 'simple';
       const folderMeta = getFolderPillMeta();
       const modePillClass = state.mode === 'edit' || state.mode === 'summary' || state.mode === 'requirement'
         ? 'edit'
@@ -5150,33 +5582,47 @@
         ? state.modal.toUpperCase()
         : (state.mode === 'nav' ? 'NAVIGATE' : 'EDITING');
 
+      const modeSwitchHtml = `
+        <div class="mode-switch" data-tour-target="mode-switch" role="group" aria-label="UI Mode">
+          <button type="button" tabindex="-1" class="${isSimple ? 'active' : ''}" onclick="setUiMode('simple')" title="Simple UI for writing test cases and steps (v)">Simple</button>
+          <button type="button" tabindex="-1" class="${!isSimple ? 'active' : ''}" onclick="setUiMode('expert')" title="Expert UI for Priority, Labels, AI Import &amp; CSV Export (v)">Expert</button>
+        </div>
+      `;
+
+      const topActionsHtml = isSimple
+        ? `
+            <button type="button" tabindex="-1" class="link-btn" onclick="openModal('help')" title="Keyboard shortcuts (?)">Keys <kbd>?</kbd></button>
+            ${modeSwitchHtml}
+          `
+        : `
+            <button type="button" tabindex="-1" onclick="openPalette()">Commands <kbd>/</kbd></button>
+            <div data-tour-target="import-config" style="display:inline-flex;align-items:center;gap:6px">
+              <button type="button" tabindex="-1" onclick="openImportModal()">Import <kbd>i</kbd></button>
+              <button type="button" tabindex="-1" onclick="openConfigModal()">Config <kbd>g</kbd></button>
+            </div>
+            <button type="button" tabindex="-1" data-tour-target="export-btn" class="primary" onclick="openModal('export')">Export CSV <kbd>e</kbd></button>
+            <button type="button" tabindex="-1" onclick="openModal('help')">Keys <kbd>?</kbd></button>
+            ${modeSwitchHtml}
+          `;
+
       const app = document.getElementById('app');
+      app.className = 'shell ' + (isSimple ? 'mode-simple' : 'mode-expert');
       app.innerHTML = `
         <header class="topbar">
           <div class="brand">
-            <span class="brand-title">Xray Cloud Test Studio</span>
+            <span class="brand-title">Xray Test Studio</span>
             <div data-tour-target="projects-folder" style="display:inline-flex;align-items:center;gap:6px">
               <button type="button" tabindex="-1" onclick="openProjectsModal()" title="Switch or manage projects (w)">
                 <span class="muted">Project:</span>
                 <strong>${escHtml(proj.name)}</strong>
-                <kbd>w</kbd>
+                ${isSimple ? '' : '<kbd>w</kbd>'}
               </button>
               <button id="folder-pill" type="button" tabindex="-1" class="folder-pill ${folderMeta.cls}" onclick="state.dirHandle ? openProjectsModal() : connectLocalFolder(false)" title="Connect or inspect local folder (o)">
                 ${folderMeta.html}
               </button>
             </div>
-            <span class="mode-pill ${modePillClass}">${modeText}</span>
           </div>
-          <div class="top-actions">
-            <button type="button" tabindex="-1" onclick="openPalette()">Commands <kbd>/</kbd></button>
-            <div data-tour-target="import-config" style="display:inline-flex;align-items:center;gap:6px">
-              <button type="button" tabindex="-1" onclick="openImportModal()">Import <kbd>i</kbd></button>
-              <button type="button" tabindex="-1" onclick="openConfigModal()">Central Config <kbd>g</kbd></button>
-            </div>
-            <button type="button" tabindex="-1" data-tour-target="export-btn" class="primary" onclick="openModal('export')">Export CSV <kbd>e</kbd></button>
-            <button type="button" tabindex="-1" onclick="startInteractiveTour()" title="Start 60-second interactive tour">Tour</button>
-            <button type="button" tabindex="-1" onclick="openModal('help')">Keys <kbd>?</kbd></button>
-          </div>
+          <div class="top-actions">${topActionsHtml}</div>
         </header>
 
         <div class="workspace">
@@ -5189,7 +5635,10 @@
 
         <footer class="footer">
           <div class="hints">${renderFooterHints()}</div>
-          <div role="status" aria-live="polite" class="status-msg ${state.statusTone}">${escHtml(state.statusMsg)}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${!isSimple ? `<span class="mode-pill ${modePillClass}">${modeText}</span>` : ''}
+            <div role="status" aria-live="polite" class="status-msg ${state.statusTone}">${escHtml(state.statusMsg)}</div>
+          </div>
         </footer>
 
         ${state.mode === 'modal' ? renderModal() : ''}
@@ -5220,8 +5669,12 @@
             e.preventDefault();
             dismissWelcome();
           } else if (key === 'Enter') {
+            const active = document.activeElement;
+            if (active && active.tagName === 'BUTTON' && active.id !== 'welcome-start-btn') {
+              return;
+            }
             e.preventDefault();
-            startInteractiveTour();
+            chooseOnboardingMode('simple', false);
           }
           return;
         }
@@ -5385,19 +5838,20 @@
 
       // NAVIGATE mode
       const t = activeTest();
-      const cols = getVisibleStepColumns(state.config);
+      const cols = getEffectiveStepColumns(state.config, state.uiMode, t, state.simpleShowData);
+      const isExpert = state.uiMode === 'expert';
 
       if ((e.ctrlKey || e.metaKey) && lower === 'k') { e.preventDefault(); openPalette(); }
       else if ((e.ctrlKey || e.metaKey) && lower === 'z') { e.preventDefault(); undo(); }
       else if ((e.ctrlKey || e.metaKey) && (lower === 'y' || (e.shiftKey && lower === 'z'))) { e.preventDefault(); redo(); }
-      else if ((e.ctrlKey || e.metaKey) && lower === 'e') { e.preventDefault(); openModal('export'); }
-      else if ((e.ctrlKey || e.metaKey) && lower === 'i') { e.preventDefault(); openImportModal(); }
-      else if ((e.ctrlKey || e.metaKey) && key === ',') { e.preventDefault(); openConfigModal(); }
+      else if ((e.ctrlKey || e.metaKey) && lower === 'e') { if (isExpert) { e.preventDefault(); openModal('export'); } }
+      else if ((e.ctrlKey || e.metaKey) && lower === 'i') { if (isExpert) { e.preventDefault(); openImportModal(); } }
+      else if ((e.ctrlKey || e.metaKey) && key === ',') { if (isExpert) { e.preventDefault(); openConfigModal(); } }
       else if (key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); insertStepBelow(true); }
       else if (e.altKey && key === 'ArrowUp') { e.preventDefault(); moveStep(-1); }
       else if (e.altKey && key === 'ArrowDown') { e.preventDefault(); moveStep(1); }
-      else if (e.altKey && key === 'ArrowLeft') { e.preventDefault(); moveColumn(-1); }
-      else if (e.altKey && key === 'ArrowRight') { e.preventDefault(); moveColumn(1); }
+      else if (e.altKey && key === 'ArrowLeft') { if (isExpert) { e.preventDefault(); moveColumn(-1); } }
+      else if (e.altKey && key === 'ArrowRight') { if (isExpert) { e.preventDefault(); moveColumn(1); } }
       else if (key === 'ArrowUp') { e.preventDefault(); if (state.row > 0) state.row--; notifyTourEvent('navigate'); render(true); }
       else if (key === 'ArrowDown') { e.preventDefault(); if (state.row + 1 < t.steps.length) state.row++; notifyTourEvent('navigate'); render(true); }
       else if (key === 'ArrowLeft') { e.preventDefault(); if (state.col > 0) state.col--; notifyTourEvent('navigate'); render(true); }
@@ -5415,17 +5869,18 @@
         render(true);
       }
       else if (key === 'Enter' || key === 'F2') { e.preventDefault(); startCellEdit(); }
-      else if (key === '1' || key === '2' || key === '3') { e.preventDefault(); setPriorityValue(key); }
-      else if (lower === 'p') { e.preventDefault(); cyclePriority(); }
-      else if (lower === 'l') { e.preventDefault(); openPicker('labels'); }
-      else if (lower === 'c') { e.preventDefault(); openPicker('components'); }
+      else if (!e.ctrlKey && !e.metaKey && !e.altKey && lower === 'v') { e.preventDefault(); setUiMode(isExpert ? 'simple' : 'expert'); }
+      else if ((key === '1' || key === '2' || key === '3') && isExpert) { e.preventDefault(); setPriorityValue(key); }
+      else if (lower === 'p' && isExpert) { e.preventDefault(); cyclePriority(); }
+      else if (lower === 'l' && isExpert) { e.preventDefault(); openPicker('labels'); }
+      else if (lower === 'c' && isExpert) { e.preventDefault(); openPicker('components'); }
       else if (lower === 's') { e.preventDefault(); startMetaEdit('summary'); }
-      else if (lower === 'r') { e.preventDefault(); startMetaEdit('requirement'); }
-      else if (lower === 'g') { e.preventDefault(); openConfigModal(); }
+      else if (lower === 'r' && isExpert) { e.preventDefault(); startMetaEdit('requirement'); }
+      else if (lower === 'g' && isExpert) { e.preventDefault(); openConfigModal(); }
       else if (lower === 'w') { e.preventDefault(); openProjectsModal(); }
       else if (lower === 'o') { e.preventDefault(); connectLocalFolder(false); }
-      else if (lower === 'i') { e.preventDefault(); openImportModal(); }
-      else if (lower === 'e') { e.preventDefault(); openModal('export'); }
+      else if (lower === 'i' && isExpert) { e.preventDefault(); openImportModal(); }
+      else if (lower === 'e' && isExpert) { e.preventDefault(); openModal('export'); }
       else if (key === '/') { e.preventDefault(); openPalette(); }
       else if (key === '?') { e.preventDefault(); openModal('help'); }
       else if (lower === 'n') { e.preventDefault(); insertStepBelow(true); }
