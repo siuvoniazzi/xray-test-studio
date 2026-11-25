@@ -1058,6 +1058,7 @@
   "defaultUiMode": "simple",
   "csvDelimiter": ",",
   "listDelimiter": ";",
+  "labelSpaceReplacement": "_",
   "includeUtf8Bom": true,
   "autoWriteCsvToFolder": true,
   "ai": {
@@ -1080,6 +1081,7 @@
     "labels": "Labels",
     "components": "Components",
     "requirement": "Requirement",
+    "repoPath": "Test Repository Path",
     "action": "Action",
     "data": "Data",
     "expected": "Expected Result"
@@ -1134,6 +1136,7 @@
       if (raw.defaultUiMode === 'simple' || raw.defaultUiMode === 'expert') cfg.defaultUiMode = raw.defaultUiMode;
       if (raw.csvDelimiter === ',' || raw.csvDelimiter === ';') cfg.csvDelimiter = raw.csvDelimiter;
       if (typeof raw.listDelimiter === 'string' && raw.listDelimiter.length > 0) cfg.listDelimiter = raw.listDelimiter;
+      if (raw.labelSpaceReplacement === '_' || raw.labelSpaceReplacement === '-' || raw.labelSpaceReplacement === 'none') cfg.labelSpaceReplacement = raw.labelSpaceReplacement;
       if (typeof raw.includeUtf8Bom === 'boolean') cfg.includeUtf8Bom = raw.includeUtf8Bom;
       if (typeof raw.autoWriteCsvToFolder === 'boolean') cfg.autoWriteCsvToFolder = raw.autoWriteCsvToFolder;
       if (raw.ai && typeof raw.ai === 'object') {
@@ -1195,6 +1198,14 @@
       return getVisibleStepColumns(config);
     }
 
+    function sanitizeLabel(label, replacement = '_') {
+      const s = String(label ?? '').trim();
+      if (replacement === '_' || replacement === '-') {
+        return s.replace(/\s+/g, replacement);
+      }
+      return s;
+    }
+
     function formatMultiValue(items, listDelimiter) {
       const delim = listDelimiter || ';';
       const cleaned = dedupeStrings(items || []);
@@ -1218,6 +1229,7 @@
     function buildXrayCsv(tests, config) {
       const delim = config.csvDelimiter || ',';
       const listDelim = config.listDelimiter || ';';
+      const labelRep = config.labelSpaceReplacement;
       const h = config.headers || {};
       const stepCols = getVisibleStepColumns(config);
 
@@ -1230,6 +1242,7 @@
         h.labels || 'Labels',
         h.components || 'Components',
         h.requirement || 'Requirement',
+        h.repoPath || 'Test Repository Path',
         ...stepCols.map(c => c.label)
       ];
 
@@ -1237,7 +1250,8 @@
 
       tests.forEach(t => {
         const steps = (t.steps && t.steps.length > 0) ? t.steps : [{ action: '', data: '', expected: '' }];
-        const labelsList = dedupeStrings(t.labels || []);
+        const rawLabels = (t.labels || []).map(l => (labelRep === '_' || labelRep === '-') ? sanitizeLabel(l, labelRep) : l);
+        const labelsList = dedupeStrings(rawLabels);
         const compList = dedupeStrings(t.components || []);
         const labelsStr = formatMultiValue(labelsList, listDelim);
         const compStr = formatMultiValue(compList, listDelim);
@@ -1253,6 +1267,7 @@
             csvCell(isFirst ? labelsStr : '', delim, isFirst && labelsList.length > 1),
             csvCell(isFirst ? compStr : '', delim, isFirst && compList.length > 1),
             csvCell(isFirst ? (t.requirement || '') : '', delim),
+            csvCell(isFirst ? (t.repoPath || '') : '', delim),
             ...stepCols.map(c => csvCell(step[c.key] || '', delim))
           ];
           lines.push(rowCells.join(delim));
@@ -1280,6 +1295,15 @@
         }
         if (!validPriorities.has(String(t.priority || ''))) {
           issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'priority', message: `${t.id}: Priority "${t.priority || '(blank)'}" is outside configured values (${[...validPriorities].join(', ')})` });
+        }
+        const spacedLabels = (t.labels || []).filter(l => /\s/.test(l));
+        if (spacedLabels.length > 0) {
+          const rep = config.labelSpaceReplacement || '_';
+          if (rep === 'none') {
+            issues.push({ severity: 'error', testIdx: idx, testId: t.id, kind: 'label-spaces', values: spacedLabels, message: `${t.id}: Label(s) contain spaces (forbidden in Jira): ${spacedLabels.join(', ')}` });
+          } else {
+            issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'label-spaces', values: spacedLabels, message: `${t.id}: Label(s) contain spaces — auto-exported with "${rep}" (${spacedLabels.map(l => sanitizeLabel(l, rep)).join(', ')})` });
+          }
         }
         if (!config.allowCustomLabels) {
           const extraLabels = (t.labels || []).filter(l => !allowedLabels.has(l));
@@ -1635,6 +1659,7 @@
         labels: -1,
         components: -1,
         requirement: -1,
+        repoPath: -1,
         action: -1,
         data: -1,
         expected: -1
@@ -1648,6 +1673,7 @@
         else if (mapping.labels === -1 && /(label|labels|tag|tags)/.test(h)) mapping.labels = idx;
         else if (mapping.components === -1 && /(component|components|module|area)/.test(h)) mapping.components = idx;
         else if (mapping.requirement === -1 && /(requirement|story|req|tests|link)/.test(h)) mapping.requirement = idx;
+        else if (mapping.repoPath === -1 && /(test\s*repository\s*path|repo(?:sitory)?\s*path|\bpath\b|folder|pfad|ordner|directory|suite)/.test(h)) mapping.repoPath = idx;
         else if (mapping.expected === -1 && /(expected|result|outcome)/.test(h)) mapping.expected = idx;
         else if (mapping.data === -1 && /(step\s*data|test\s*data|\bdata\b|input)/.test(h)) mapping.data = idx;
         else if (mapping.action === -1 && /(step\s*action|step\s*description|action\s*description|\baction\b|\bsteps?\b)/.test(h)) mapping.action = idx;
@@ -1690,11 +1716,12 @@
         const rawLabels = getVal(row, mapping.labels);
         const rawComps = getVal(row, mapping.components);
         const rawReq = getVal(row, mapping.requirement);
+        const rawPath = getVal(row, mapping.repoPath);
         const action = getVal(row, mapping.action);
         const data = getVal(row, mapping.data);
         const expected = getVal(row, mapping.expected);
 
-        if (!rawId && !rawSummary && !rawDesc && !action && !data && !expected) return;
+        if (!rawId && !rawSummary && !rawDesc && !rawPath && !action && !data && !expected) return;
 
         let target = null;
         if (rawId && byId.has(rawId)) {
@@ -1711,6 +1738,7 @@
             labels: parseMultiField(rawLabels),
             components: parseMultiField(rawComps),
             requirement: rawReq,
+            repoPath: rawPath,
             steps: []
           };
           tests.push(target);
@@ -1722,6 +1750,7 @@
         if (rawLabels && target.labels.length === 0) target.labels = parseMultiField(rawLabels);
         if (rawComps && target.components.length === 0) target.components = parseMultiField(rawComps);
         if (rawReq && !target.requirement) target.requirement = rawReq;
+        if (rawPath && !target.repoPath) target.repoPath = rawPath;
 
         if (action || data || expected || target.steps.length === 0) {
           target.steps.push({ action, data, expected });
@@ -1738,6 +1767,7 @@
           labels: [],
           components: [],
           requirement: '',
+          repoPath: '',
           steps: [{ action: '', data: '', expected: '' }]
         }];
       }
@@ -1926,6 +1956,7 @@
                 labels: { type: 'array', items: { type: 'string' } },
                 components: { type: 'array', items: { type: 'string' } },
                 requirement: { type: 'string' },
+                repoPath: { type: 'string' },
                 steps: {
                   type: 'array',
                   items: {
@@ -1965,10 +1996,10 @@
           : `Allowed Components (STRICT — choose ONLY from this exact list, or return [] if none match): [${compsList}].`,
         'Put a concise test case objective, scope, or preconditions in "description" (or "" if none), and a clear title in "summary".',
         'Break each test into concrete sequential steps with "action" (what the tester does), "data" (input values/credentials/parameters or "" if none), and "expected" (verifiable outcome).',
-        'If the source mentions a Jira issue/story key (e.g. SHOP-214), put it in "requirement"; otherwise use "".',
+        'If the source mentions a Jira issue/story key (e.g. SHOP-214), put it in "requirement"; otherwise use "". If it specifies an Xray folder / repository path (e.g. "Checkout / Promo Codes", spaces allowed), put it in "repoPath"; otherwise use "".',
         'Preserve the language of the input text unless the user requests a specific language.',
         extraInstructions ? `Additional user instructions: ${String(extraInstructions).trim()}` : '',
-        'Respond strictly with JSON matching: { "tests": [ { "summary": "...", "description": "", "priority": "1|2|3", "labels": [], "components": [], "requirement": "", "steps": [ { "action": "...", "data": "...", "expected": "..." } ] } ] }.'
+        'Respond strictly with JSON matching: { "tests": [ { "summary": "...", "description": "", "priority": "1|2|3", "labels": [], "components": [], "requirement": "", "repoPath": "", "steps": [ { "action": "...", "data": "...", "expected": "..." } ] } ] }.'
       ].filter(Boolean).join('\n');
     }
 
@@ -2149,6 +2180,7 @@
           labels,
           components,
           requirement: String(item.requirement || '').trim(),
+          repoPath: String(item.repoPath || item.path || item.folder || '').trim(),
           steps
         };
       });
@@ -2349,6 +2381,7 @@
       defaultUiMode: 'simple',
       csvDelimiter: ',',
       listDelimiter: ';',
+      labelSpaceReplacement: '_',
       includeUtf8Bom: true,
       autoWriteCsvToFolder: true,
       ai: {
@@ -2367,6 +2400,7 @@
         labels: 'Labels',
         components: 'Components',
         requirement: 'Requirement',
+        repoPath: 'Test Repository Path',
         action: 'Action',
         data: 'Data',
         expected: 'Expected Result'
@@ -2398,6 +2432,7 @@
           labels: ['Regression', 'Smoke'],
           components: ['Checkout', 'Billing'],
           requirement: 'SHOP-214',
+          repoPath: 'Checkout / Promo Codes',
           steps: [
             { action: 'Open cart with 1 item', data: '', expected: 'Cart total displays' },
             { action: 'Apply promo code', data: 'SAVE20', expected: '20% discount applied' },
@@ -2412,6 +2447,7 @@
           labels: ['Security'],
           components: ['Authentication'],
           requirement: 'AUTH-108',
+          repoPath: 'Authentication',
           steps: [
             { action: 'Click Forgot password', data: '', expected: 'Reset form opens' },
             { action: 'Submit registered email', data: 'qa@example.com', expected: 'Reset email delivered' }
@@ -2914,6 +2950,7 @@
           labels: [],
           components: [],
           requirement: '',
+          repoPath: '',
           steps: [{ action: '', data: '', expected: '' }]
         }]
       };
@@ -3093,7 +3130,7 @@
       const nextMode = mode === 'expert' ? 'expert' : 'simple';
       if (state.mode === 'edit') {
         commitCellEdit('stay');
-      } else if (state.mode === 'summary' || state.mode === 'description' || state.mode === 'requirement') {
+      } else if (state.mode === 'summary' || state.mode === 'description' || state.mode === 'requirement' || state.mode === 'repoPath') {
         commitMetaEdit();
       }
       state.uiMode = nextMode;
@@ -3425,6 +3462,7 @@
         labels: [],
         components: [],
         requirement: '',
+        repoPath: '',
         steps: [{ action: '', data: '', expected: '' }]
       });
       state.activeTestIdx = state.tests.length - 1;
@@ -3499,9 +3537,11 @@
 
     function startMetaEdit(field) {
       const t = activeTest();
-      state.mode = field; // 'summary' | 'description' | 'requirement'
+      state.mode = field; // 'summary' | 'description' | 'requirement' | 'repoPath'
       state.metaDraft = t[field] || '';
-      const label = field === 'summary' ? 'Test Summary' : (field === 'description' ? 'Jira Description' : 'Requirement key');
+      const label = field === 'summary'
+        ? 'Test Summary'
+        : (field === 'description' ? 'Jira Description' : (field === 'repoPath' ? 'Test Repository Path' : 'Requirement key'));
       setStatus(`Editing ${label}`);
       render(true);
     }
@@ -3533,6 +3573,13 @@
           persistSuite();
         }
         setStatus(`Saved ${t.id} requirement`, 'ok');
+      } else if (field === 'repoPath') {
+        if (val !== (t.repoPath || '')) {
+          pushUndo();
+          t.repoPath = val;
+          persistSuite();
+        }
+        setStatus(`Saved ${t.id} path`, 'ok');
       }
       state.mode = 'nav';
       render(true);
@@ -3868,7 +3915,10 @@
       );
 
       if (isExpert) {
-        cmds.push({ label: 'Edit Requirement / Story Key', key: 'r', run: () => { closeModal(); startMetaEdit('requirement'); } });
+        cmds.push(
+          { label: 'Edit Requirement / Story Key', key: 'r', run: () => { closeModal(); startMetaEdit('requirement'); } },
+          { label: 'Edit Test Repository Path / Folder', key: 'f', run: () => { closeModal(); startMetaEdit('repoPath'); } }
+        );
       }
 
       cmds.push(
@@ -3935,6 +3985,8 @@
       if (csvDel === ',' || csvDel === ';') d.csvDelimiter = csvDel;
       const listDel = getVal('cfg-list-delim');
       if (listDel !== null && listDel.trim()) d.listDelimiter = listDel.trim();
+      const labelSpaceRep = getVal('cfg-label-space-rep');
+      if (labelSpaceRep === '_' || labelSpaceRep === '-' || labelSpaceRep === 'none') d.labelSpaceReplacement = labelSpaceRep;
       const defPrio = getVal('cfg-default-prio');
       if (defPrio) d.defaultPriority = defPrio;
       const defUi = getVal('cfg-default-ui-mode');
@@ -4414,6 +4466,18 @@
       render(false);
     }
 
+    function fixSpacedLabels(rep = '_') {
+      pushUndo();
+      state.tests.forEach(t => {
+        t.labels = dedupeStrings((t.labels || []).map(l => sanitizeLabel(l, rep)));
+      });
+      state.config.labels = dedupeStrings((state.config.labels || []).map(l => sanitizeLabel(l, rep)));
+      persistConfig();
+      persistSuite();
+      setStatus(`Replaced spaces in Labels with "${rep}"`, 'ok');
+      render(false);
+    }
+
     /* =========================================================================
        RENDERING
        ========================================================================= */
@@ -4529,7 +4593,7 @@
         return `
           <section class="meta-panel" aria-label="Test Case Title">
             <div class="simple-doc">
-              <div class="simple-kicker">${escHtml(t.id)} · ${stepCount} ${stepCount === 1 ? 'step' : 'steps'}</div>
+              <div class="simple-kicker">${escHtml(t.id)}${t.repoPath ? ' · ' + escHtml(t.repoPath) : ''} · ${stepCount} ${stepCount === 1 ? 'step' : 'steps'}</div>
               ${titleNode}
               ${descNode}
             </div>
@@ -4560,8 +4624,20 @@
              <kbd>r</kbd>
            </span>`;
 
+      const pathNode = state.mode === 'repoPath'
+        ? `<input id="meta-inline-input" type="text" value="${escHtml(state.metaDraft)}" placeholder="e.g. Checkout / Promo Codes" aria-label="Test Repository Path" style="min-width:190px" />`
+        : `<span class="field-pill" onclick="startMetaEdit('repoPath')" title="Click or press f to edit Test Repository Path / Folder">
+             <span class="muted">Path:</span>
+             <span class="${t.repoPath ? '' : 'faint'}">${escHtml(t.repoPath || 'None')}</span>
+             <kbd>f</kbd>
+           </span>`;
+
       const labelChips = (t.labels || []).length > 0
-        ? t.labels.map(l => `<span class="chip label ${!state.config.allowCustomLabels && !allowedL.has(l) ? 'invalid' : ''}">${escHtml(l)}</span>`).join('')
+        ? t.labels.map(l => {
+            const hasSpace = /\s/.test(l);
+            const invalid = hasSpace || (!state.config.allowCustomLabels && !allowedL.has(l));
+            return `<span class="chip label ${invalid ? 'invalid' : ''}"${hasSpace ? ' title="Jira labels cannot contain spaces"' : ''}>${escHtml(l)}</span>`;
+          }).join('')
         : '<span class="faint">None</span>';
 
       const compChips = (t.components || []).length > 0
@@ -4610,6 +4686,7 @@
               <kbd>c</kbd>
             </div>
             ${reqNode}
+            ${pathNode}
           </div>
         </section>
       `;
@@ -4946,6 +5023,14 @@
                     <span>Multi-Value List Delimiter (Labels/Components)</span>
                     <input id="cfg-list-delim" type="text" value="${escHtml(d.listDelimiter)}" class="mono" style="width:70px;text-align:center" />
                   </label>
+                  <label style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <span>Replace spaces in Labels on export</span>
+                    <select id="cfg-label-space-rep">
+                      <option value="_" ${(d.labelSpaceReplacement || '_') === '_' ? 'selected' : ''}>Underscore (_) — recommended</option>
+                      <option value="-" ${d.labelSpaceReplacement === '-' ? 'selected' : ''}>Hyphen (-)</option>
+                      <option value="none" ${d.labelSpaceReplacement === 'none' ? 'selected' : ''}>Do not auto-replace (strict)</option>
+                    </select>
+                  </label>
                   <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
                     <input id="cfg-utf8-bom" type="checkbox" ${d.includeUtf8Bom ? 'checked' : ''} />
                     <span>Include UTF-8 BOM (recommended for Excel compatibility)</span>
@@ -5089,6 +5174,7 @@
                         <span class="mono" style="font-weight:700">${escHtml(t.id)}</span>
                         <strong>${escHtml(t.summary)}</strong>
                         ${t.requirement ? `<span class="chip comp mono">${escHtml(t.requirement)}</span>` : ''}
+                        ${t.repoPath ? `<span class="chip label">${escHtml(t.repoPath)}</span>` : ''}
                       </div>
                       <span class="prio-badge ${prioClass(t.priority)}">P${escHtml(t.priority)}</span>
                     </div>
@@ -5169,6 +5255,7 @@
           ['labels', 'Labels (;-separated)'],
           ['components', 'Components (;-separated)'],
           ['requirement', 'Requirement / Story'],
+          ['repoPath', 'Test Repository Path / Folder'],
           ['action', 'Step Action'],
           ['data', 'Step Data'],
           ['expected', 'Step Expected Result']
@@ -5264,6 +5351,7 @@
       const errors = issues.filter(i => i.severity === 'error');
       const warns = issues.filter(i => i.severity === 'warn');
       const hasTagIssues = issues.some(i => i.kind === 'labels' || i.kind === 'components');
+      const hasSpacedLabels = issues.some(i => i.kind === 'label-spaces');
       const csv = buildXrayCsv(state.tests, state.config);
 
       return `
@@ -5278,10 +5366,16 @@
                 ? `<div class="banner ok"><strong>All checks passed.</strong> Ready for Xray Cloud Test Case Importer (${escHtml(state.config.includeUtf8Bom ? 'UTF-8 BOM' : 'UTF-8')}, delimiter "${escHtml(state.config.csvDelimiter)}", list delimiter "${escHtml(state.config.listDelimiter)}").</div>`
                 : `<div class="banner ${errors.length ? 'err' : 'warn'}">
                      <span><strong>${errors.length} error(s), ${warns.length} warning(s)</strong> found across your test cases.</span>
-                     ${hasTagIssues ? `
-                       <div style="display:flex;gap:6px">
-                         <button type="button" onclick="fixUnknownTagsToConfig()">Add Unknown Tags to Central Config</button>
-                         <button type="button" onclick="stripUnknownTagsFromTests()">Strip Unknown Tags</button>
+                     ${(hasSpacedLabels || hasTagIssues) ? `
+                       <div style="display:flex;gap:6px;flex-wrap:wrap">
+                         ${hasSpacedLabels ? `
+                           <button type="button" onclick="fixSpacedLabels('_')">Replace Spaces → _</button>
+                           <button type="button" onclick="fixSpacedLabels('-')">Replace Spaces → -</button>
+                         ` : ''}
+                         ${hasTagIssues ? `
+                           <button type="button" onclick="fixUnknownTagsToConfig()">Add Unknown Tags to Central Config</button>
+                           <button type="button" onclick="stripUnknownTagsFromTests()">Strip Unknown Tags</button>
+                         ` : ''}
                        </div>
                      ` : ''}
                    </div>`
@@ -5570,7 +5664,7 @@
                   ${row('Ctrl+S', 'Save to folder (or download .json)')}
                   ${row('/', 'Command Palette')}
                   ${isSimple ? '' : row('1 / 2 / 3 / p', 'Set / cycle Priority')}
-                  ${isSimple ? '' : row('l / c / r', 'Labels / Components / Requirement')}
+                  ${isSimple ? '' : row('l / c / r / f', 'Labels / Components / Req / Path')}
                   ${isSimple ? '' : row('g · i · e', 'Central Config · AI Import · CSV Export')}
                 </div>
               </div>
@@ -5599,7 +5693,7 @@
       if (state.mode === 'description') {
         return '<span><kbd>Shift+Enter</kbd> New line</span><span><kbd>Enter</kbd> Save description</span><span><kbd>Esc</kbd> Cancel</span>';
       }
-      if (state.mode === 'summary' || state.mode === 'requirement') {
+      if (state.mode === 'summary' || state.mode === 'requirement' || state.mode === 'repoPath') {
         return '<span><kbd>Enter</kbd> Save field</span><span><kbd>Esc</kbd> Cancel</span>';
       }
       if (state.uiMode === 'simple') {
@@ -5666,7 +5760,7 @@
         }
         return;
       }
-      if (state.mode === 'summary' || state.mode === 'requirement') {
+      if (state.mode === 'summary' || state.mode === 'requirement' || state.mode === 'repoPath') {
         const inp = document.getElementById('meta-inline-input');
         if (inp) {
           inp.focus();
@@ -5686,7 +5780,7 @@
       const proj = activeProject();
       const isSimple = state.uiMode === 'simple';
       const folderMeta = getFolderPillMeta();
-      const modePillClass = state.mode === 'edit' || state.mode === 'summary' || state.mode === 'description' || state.mode === 'requirement'
+      const modePillClass = state.mode === 'edit' || state.mode === 'summary' || state.mode === 'description' || state.mode === 'requirement' || state.mode === 'repoPath'
         ? 'edit'
         : (state.mode === 'modal' ? 'modal' : '');
       const modeText = state.mode === 'modal'
@@ -5934,7 +6028,7 @@
         return;
       }
 
-      if (state.mode === 'summary' || state.mode === 'description' || state.mode === 'requirement') {
+      if (state.mode === 'summary' || state.mode === 'description' || state.mode === 'requirement' || state.mode === 'repoPath') {
         if (key === 'Enter' && !(state.mode === 'description' && e.shiftKey)) {
           e.preventDefault();
           commitMetaEdit();
@@ -5987,6 +6081,7 @@
       else if (lower === 'c' && isExpert) { e.preventDefault(); openPicker('components'); }
       else if (lower === 's') { e.preventDefault(); startMetaEdit('summary'); }
       else if (lower === 'r' && isExpert) { e.preventDefault(); startMetaEdit('requirement'); }
+      else if (lower === 'f' && isExpert) { e.preventDefault(); startMetaEdit('repoPath'); }
       else if (lower === 'g' && isExpert) { e.preventDefault(); openConfigModal(); }
       else if (lower === 'w') { e.preventDefault(); openProjectsModal(); }
       else if (lower === 'o') { e.preventDefault(); connectLocalFolder(false); }
