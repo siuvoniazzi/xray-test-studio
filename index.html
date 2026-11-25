@@ -912,6 +912,64 @@
       max-width: 720px;
     }
 
+    .simple-desc {
+      margin-top: 4px;
+      padding: 4px 8px;
+      margin-left: -8px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      cursor: pointer;
+      max-width: 720px;
+    }
+
+    .simple-desc:hover {
+      border-color: var(--border);
+      background: var(--surface);
+    }
+
+    .simple-desc.empty {
+      color: var(--text-faint);
+    }
+
+    .simple-desc-input {
+      margin-top: 6px;
+      width: 100%;
+      max-width: 720px;
+      resize: vertical;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .desc-bar {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      cursor: pointer;
+      font-size: 12.5px;
+    }
+
+    .desc-bar:hover {
+      border-color: var(--border-strong);
+      background: var(--surface-2);
+    }
+
+    .desc-text {
+      flex: 1;
+      min-width: 0;
+      white-space: pre-wrap;
+      max-height: 54px;
+      overflow-y: auto;
+      line-height: 1.4;
+    }
+
     .shell.mode-simple .grid-wrap {
       padding: 6px 28px 28px;
     }
@@ -1016,6 +1074,7 @@
   "headers": {
     "tcid": "TCID",
     "summary": "Test Summary",
+    "description": "Description",
     "testType": "Test Type",
     "priority": "Priority",
     "labels": "Labels",
@@ -1165,6 +1224,7 @@
       const headerRow = [
         h.tcid || 'TCID',
         h.summary || 'Test Summary',
+        h.description || 'Description',
         h.testType || 'Test Type',
         h.priority || 'Priority',
         h.labels || 'Labels',
@@ -1187,6 +1247,7 @@
           const rowCells = [
             csvCell(t.id, delim),
             csvCell(isFirst ? (t.summary || '') : '', delim),
+            csvCell(isFirst ? (t.description || '') : '', delim),
             csvCell(isFirst ? (config.defaultTestType || 'Manual') : '', delim),
             csvCell(isFirst ? (t.priority || '') : '', delim),
             csvCell(isFirst ? labelsStr : '', delim, isFirst && labelsList.length > 1),
@@ -1569,6 +1630,7 @@
       const mapping = {
         tcid: -1,
         summary: -1,
+        description: -1,
         priority: -1,
         labels: -1,
         components: -1,
@@ -1586,9 +1648,10 @@
         else if (mapping.labels === -1 && /(label|labels|tag|tags)/.test(h)) mapping.labels = idx;
         else if (mapping.components === -1 && /(component|components|module|area)/.test(h)) mapping.components = idx;
         else if (mapping.requirement === -1 && /(requirement|story|req|tests|link)/.test(h)) mapping.requirement = idx;
-        else if (mapping.action === -1 && /(action|step\s*action|step|description)/.test(h)) mapping.action = idx;
-        else if (mapping.data === -1 && /(data|test\s*data|input)/.test(h)) mapping.data = idx;
         else if (mapping.expected === -1 && /(expected|result|outcome)/.test(h)) mapping.expected = idx;
+        else if (mapping.data === -1 && /(step\s*data|test\s*data|\bdata\b|input)/.test(h)) mapping.data = idx;
+        else if (mapping.action === -1 && /(step\s*action|step\s*description|action\s*description|\baction\b|\bsteps?\b)/.test(h)) mapping.action = idx;
+        else if (mapping.description === -1 && /(jira\s*description|test\s*case\s*description|test\s*description|\bdescription\b|beschreibung|objective|overview)/.test(h)) mapping.description = idx;
       });
       return mapping;
     }
@@ -1622,6 +1685,7 @@
       dataRows.forEach(row => {
         const rawId = getVal(row, mapping.tcid);
         const rawSummary = getVal(row, mapping.summary);
+        const rawDesc = getVal(row, mapping.description);
         const rawPrio = getVal(row, mapping.priority);
         const rawLabels = getVal(row, mapping.labels);
         const rawComps = getVal(row, mapping.components);
@@ -1630,7 +1694,7 @@
         const data = getVal(row, mapping.data);
         const expected = getVal(row, mapping.expected);
 
-        if (!rawId && !rawSummary && !action && !data && !expected) return;
+        if (!rawId && !rawSummary && !rawDesc && !action && !data && !expected) return;
 
         let target = null;
         if (rawId && byId.has(rawId)) {
@@ -1642,6 +1706,7 @@
           target = {
             id: newId,
             summary: rawSummary || 'Imported test ' + newId,
+            description: rawDesc,
             priority: normalizeImportedPriority(rawPrio, config),
             labels: parseMultiField(rawLabels),
             components: parseMultiField(rawComps),
@@ -1653,6 +1718,7 @@
         }
 
         if (rawSummary && !target.summary) target.summary = rawSummary;
+        if (rawDesc && !target.description) target.description = rawDesc;
         if (rawLabels && target.labels.length === 0) target.labels = parseMultiField(rawLabels);
         if (rawComps && target.components.length === 0) target.components = parseMultiField(rawComps);
         if (rawReq && !target.requirement) target.requirement = rawReq;
@@ -1667,6 +1733,7 @@
         return [{
           id: 'TC-01',
           summary: 'Imported empty test',
+          description: '',
           priority: config.defaultPriority || '2',
           labels: [],
           components: [],
@@ -1854,6 +1921,7 @@
               required: ['summary', 'priority', 'steps'],
               properties: {
                 summary: { type: 'string' },
+                description: { type: 'string' },
                 priority: { type: 'string', enum: prios },
                 labels: { type: 'array', items: { type: 'string' } },
                 components: { type: 'array', items: { type: 'string' } },
@@ -1895,11 +1963,12 @@
         config.allowCustomComponents
           ? `Preferred Components: [${compsList}]. Reuse matching components first.`
           : `Allowed Components (STRICT — choose ONLY from this exact list, or return [] if none match): [${compsList}].`,
+        'Put a concise test case objective, scope, or preconditions in "description" (or "" if none), and a clear title in "summary".',
         'Break each test into concrete sequential steps with "action" (what the tester does), "data" (input values/credentials/parameters or "" if none), and "expected" (verifiable outcome).',
         'If the source mentions a Jira issue/story key (e.g. SHOP-214), put it in "requirement"; otherwise use "".',
         'Preserve the language of the input text unless the user requests a specific language.',
         extraInstructions ? `Additional user instructions: ${String(extraInstructions).trim()}` : '',
-        'Respond strictly with JSON matching: { "tests": [ { "summary": "...", "priority": "1|2|3", "labels": [], "components": [], "requirement": "", "steps": [ { "action": "...", "data": "...", "expected": "..." } ] } ] }.'
+        'Respond strictly with JSON matching: { "tests": [ { "summary": "...", "description": "", "priority": "1|2|3", "labels": [], "components": [], "requirement": "", "steps": [ { "action": "...", "data": "...", "expected": "..." } ] } ] }.'
       ].filter(Boolean).join('\n');
     }
 
@@ -2075,6 +2144,7 @@
         return {
           id: 'TC-' + String(idx + 1).padStart(2, '0'),
           summary: String(item.summary || item.title || ('Test case ' + (idx + 1))).trim(),
+          description: String(item.description || '').trim(),
           priority: normalizeImportedPriority(item.priority, config),
           labels,
           components,
@@ -2291,6 +2361,7 @@
       headers: {
         tcid: 'TCID',
         summary: 'Test Summary',
+        description: 'Description',
         testType: 'Test Type',
         priority: 'Priority',
         labels: 'Labels',
@@ -2322,6 +2393,7 @@
         {
           id: 'TC-01',
           summary: 'Checkout with promo code',
+          description: 'Verify a valid 20% promo code discounts the cart total and completes checkout.',
           priority: '1',
           labels: ['Regression', 'Smoke'],
           components: ['Checkout', 'Billing'],
@@ -2335,6 +2407,7 @@
         {
           id: 'TC-02',
           summary: 'Password reset email flow',
+          description: '',
           priority: cfg.defaultPriority || '2',
           labels: ['Security'],
           components: ['Authentication'],
@@ -2836,6 +2909,7 @@
         tests: [{
           id: 'TC-01',
           summary: 'New test case',
+          description: '',
           priority: state.config.defaultPriority || '2',
           labels: [],
           components: [],
@@ -3019,7 +3093,7 @@
       const nextMode = mode === 'expert' ? 'expert' : 'simple';
       if (state.mode === 'edit') {
         commitCellEdit('stay');
-      } else if (state.mode === 'summary' || state.mode === 'requirement') {
+      } else if (state.mode === 'summary' || state.mode === 'description' || state.mode === 'requirement') {
         commitMetaEdit();
       }
       state.uiMode = nextMode;
@@ -3346,6 +3420,7 @@
       state.tests.push({
         id,
         summary: 'New test case',
+        description: '',
         priority: state.config.defaultPriority || '2',
         labels: [],
         components: [],
@@ -3424,9 +3499,10 @@
 
     function startMetaEdit(field) {
       const t = activeTest();
-      state.mode = field; // 'summary' | 'requirement'
+      state.mode = field; // 'summary' | 'description' | 'requirement'
       state.metaDraft = t[field] || '';
-      setStatus(`Editing ${field === 'summary' ? 'Test Summary' : 'Requirement key'}`);
+      const label = field === 'summary' ? 'Test Summary' : (field === 'description' ? 'Jira Description' : 'Requirement key');
+      setStatus(`Editing ${label}`);
       render(true);
     }
 
@@ -3443,6 +3519,13 @@
           persistSuite();
         }
         setStatus(`Saved ${t.id} summary`, 'ok');
+      } else if (field === 'description') {
+        if (val !== (t.description || '')) {
+          pushUndo();
+          t.description = val;
+          persistSuite();
+        }
+        setStatus(`Saved ${t.id} description`, 'ok');
       } else if (field === 'requirement') {
         if (val !== (t.requirement || '')) {
           pushUndo();
@@ -3780,7 +3863,8 @@
         { label: 'New test case', key: 't', run: () => { closeModal(); createNewTest(); } },
         { label: 'Duplicate active test case', key: 'Shift+T', run: () => { closeModal(); duplicateTest(); } },
         { label: 'Delete active test case', key: 'Cmd', run: () => { closeModal(); deleteCurrentTest(); } },
-        { label: 'Rename Test Summary', key: 's', run: () => { closeModal(); startMetaEdit('summary'); } }
+        { label: 'Rename Test Summary', key: 's', run: () => { closeModal(); startMetaEdit('summary'); } },
+        { label: 'Edit Jira Description', key: 'Shift+D', run: () => { closeModal(); startMetaEdit('description'); } }
       );
 
       if (isExpert) {
@@ -4438,12 +4522,16 @@
         const titleNode = state.mode === 'summary'
           ? `<input id="meta-inline-input" class="simple-title-input" type="text" value="${escHtml(state.metaDraft)}" aria-label="Test Case Title" placeholder="What does this test verify?" />`
           : `<div class="simple-title" onclick="startMetaEdit('summary')" title="Click or press s to rename test case">${escHtml(t.summary || 'Untitled test case — click or press s')}</div>`;
+        const descNode = state.mode === 'description'
+          ? `<textarea id="meta-inline-input" class="simple-desc-input" rows="2" aria-label="Test Description" placeholder="Describe test scope, objective, or preconditions...">${escHtml(state.metaDraft)}</textarea>`
+          : `<div class="simple-desc ${t.description ? '' : 'empty'}" onclick="startMetaEdit('description')" title="Click or press Shift+D to edit description">${t.description ? escHtml(t.description) : '+ Add description…'}</div>`;
 
         return `
           <section class="meta-panel" aria-label="Test Case Title">
             <div class="simple-doc">
               <div class="simple-kicker">${escHtml(t.id)} · ${stepCount} ${stepCount === 1 ? 'step' : 'steps'}</div>
               ${titleNode}
+              ${descNode}
             </div>
           </section>
         `;
@@ -4455,6 +4543,14 @@
       const summaryNode = state.mode === 'summary'
         ? `<input id="meta-inline-input" type="text" value="${escHtml(state.metaDraft)}" aria-label="Test Summary" style="min-width:280px;flex:1" />`
         : `<span class="summary-title truncate" onclick="startMetaEdit('summary')" title="Click or press s to edit Summary">${escHtml(t.summary || '(Missing summary)')}</span>`;
+
+      const descNode = state.mode === 'description'
+        ? `<textarea id="meta-inline-input" rows="2" aria-label="Jira Description" placeholder="Jira test case description / preconditions (Enter to save, Shift+Enter for new line)..." style="width:100%;resize:vertical">${escHtml(state.metaDraft)}</textarea>`
+        : `<div class="desc-bar" onclick="startMetaEdit('description')" title="Click or press Shift+D to edit Jira Description">
+             <span class="muted">Description:</span>
+             <span class="desc-text ${t.description ? '' : 'faint'}">${escHtml(t.description || 'None (click or Shift+D to add)')}</span>
+             <kbd>Shift+D</kbd>
+           </div>`;
 
       const reqNode = state.mode === 'requirement'
         ? `<input id="meta-inline-input" type="text" value="${escHtml(state.metaDraft)}" placeholder="KEY-123" aria-label="Requirement Key" class="mono" style="width:120px" />`
@@ -4499,6 +4595,8 @@
               <div style="display:flex;gap:3px">${prioBtns}</div>
             </div>
           </div>
+
+          ${descNode}
 
           <div class="meta-row-fields">
             <div class="field-pill" onclick="openPicker('labels')" title="Pick Labels (l)">
@@ -4861,7 +4959,7 @@
 
               <div class="section-box">
                 <div style="font-weight:700">Exported CSV Column Headers</div>
-                <div style="display:grid;grid-template-columns:repeat(5, minmax(0, 1fr));gap:6px">
+                <div style="display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:6px">
                   ${Object.keys(d.headers).map(k => `
                     <label style="display:flex;flex-direction:column;gap:2px">
                       <span class="muted" style="font-size:11px">${escHtml(k)}</span>
@@ -4994,6 +5092,7 @@
                       </div>
                       <span class="prio-badge ${prioClass(t.priority)}">P${escHtml(t.priority)}</span>
                     </div>
+                    ${t.description ? `<div class="muted" style="font-size:12px;margin-top:4px;white-space:pre-wrap">${escHtml(t.description)}</div>` : ''}
                     <div class="chip-row" style="margin-top:4px">
                       ${(t.labels || []).map(l => `<span class="chip label">${escHtml(l)}</span>`).join('')}
                       ${(t.components || []).map(c => `<span class="chip comp">${escHtml(c)}</span>`).join('')}
@@ -5065,6 +5164,7 @@
         const fields = [
           ['tcid', 'TCID (Test Case ID)'],
           ['summary', 'Test Summary'],
+          ['description', 'Jira Description'],
           ['priority', 'Priority (1/2/3 or High/Med/Low)'],
           ['labels', 'Labels (;-separated)'],
           ['components', 'Components (;-separated)'],
@@ -5464,7 +5564,7 @@
                   <div style="font-weight:700">${isSimple ? 'Test Cases, Projects &amp; Views' : 'Projects, Fields &amp; Export'}</div>
                   ${row('v', isSimple ? 'Switch to Expert UI (fields, AI, CSV)' : 'Switch to Simple UI (focused writing)')}
                   ${row('w / o', 'Projects manager / Connect local folder')}
-                  ${row('s', 'Rename Test Case title / summary')}
+                  ${row('s / Shift+D', 'Rename summary / edit Jira description')}
                   ${row('[ / ] / t', 'Prev / next / new test case')}
                   ${row('u / Ctrl+Y', 'Undo / Redo')}
                   ${row('Ctrl+S', 'Save to folder (or download .json)')}
@@ -5495,6 +5595,9 @@
     function renderFooterHints() {
       if (state.mode === 'edit') {
         return '<span><kbd>Tab</kbd> Next cell / new step</span><span><kbd>Shift+Enter</kbd> New line</span><span><kbd>Enter</kbd> Save</span><span><kbd>Esc</kbd> Cancel</span>';
+      }
+      if (state.mode === 'description') {
+        return '<span><kbd>Shift+Enter</kbd> New line</span><span><kbd>Enter</kbd> Save description</span><span><kbd>Esc</kbd> Cancel</span>';
       }
       if (state.mode === 'summary' || state.mode === 'requirement') {
         return '<span><kbd>Enter</kbd> Save field</span><span><kbd>Esc</kbd> Cancel</span>';
@@ -5555,6 +5658,14 @@
         }
         return;
       }
+      if (state.mode === 'description') {
+        const inp = document.getElementById('meta-inline-input');
+        if (inp) {
+          inp.focus();
+          inp.setSelectionRange(inp.value.length, inp.value.length);
+        }
+        return;
+      }
       if (state.mode === 'summary' || state.mode === 'requirement') {
         const inp = document.getElementById('meta-inline-input');
         if (inp) {
@@ -5575,7 +5686,7 @@
       const proj = activeProject();
       const isSimple = state.uiMode === 'simple';
       const folderMeta = getFolderPillMeta();
-      const modePillClass = state.mode === 'edit' || state.mode === 'summary' || state.mode === 'requirement'
+      const modePillClass = state.mode === 'edit' || state.mode === 'summary' || state.mode === 'description' || state.mode === 'requirement'
         ? 'edit'
         : (state.mode === 'modal' ? 'modal' : '');
       const modeText = state.mode === 'modal'
@@ -5823,8 +5934,8 @@
         return;
       }
 
-      if (state.mode === 'summary' || state.mode === 'requirement') {
-        if (key === 'Enter') {
+      if (state.mode === 'summary' || state.mode === 'description' || state.mode === 'requirement') {
+        if (key === 'Enter' && !(state.mode === 'description' && e.shiftKey)) {
           e.preventDefault();
           commitMetaEdit();
         } else if (key === 'Escape') {
@@ -5884,6 +5995,7 @@
       else if (key === '/') { e.preventDefault(); openPalette(); }
       else if (key === '?') { e.preventDefault(); openModal('help'); }
       else if (lower === 'n') { e.preventDefault(); insertStepBelow(true); }
+      else if (lower === 'd' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); startMetaEdit('description'); }
       else if (lower === 'd') { e.preventDefault(); duplicateStep(); }
       else if (key === 'Delete' || key === 'Backspace') { e.preventDefault(); deleteStep(); }
       else if (key === 'T' && e.shiftKey) { e.preventDefault(); duplicateTest(); }
