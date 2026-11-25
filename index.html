@@ -1448,8 +1448,27 @@
         if (!hasAnyStepText) {
           issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'steps', message: `${t.id}: All test steps are empty` });
         }
-        if (!validPriorities.has(String(t.priority || ''))) {
-          issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'priority', message: `${t.id}: Priority "${t.priority || '(blank)'}" is outside configured values (${[...validPriorities].join(', ')})` });
+        const allowedPrioDesc = (config.priorities || []).map(p => `${p.value} (${p.csvValue || p.value})`).join(', ');
+        const rawPrioStr = String(t.priority || '').trim();
+        if (!validPriorities.has(rawPrioStr)) {
+          issues.push({
+            severity: 'error',
+            testIdx: idx,
+            testId: t.id,
+            kind: 'priority',
+            message: `${t.id}: Priority "${rawPrioStr || '(blank)'}" is not allowed — expected: ${allowedPrioDesc}`
+          });
+        } else {
+          const exportedPrio = getExportPriorityValue(rawPrioStr, config);
+          if (!exportedPrio || /[\r\n]/.test(exportedPrio)) {
+            issues.push({
+              severity: 'error',
+              testIdx: idx,
+              testId: t.id,
+              kind: 'priority',
+              message: `${t.id}: Priority "${rawPrioStr}" has an invalid Jira CSV mapping ("${exportedPrio}")`
+            });
+          }
         }
         const asciiOnly = !!config.labelAsciiOnly;
         const badLabels = (t.labels || []).filter(l => hasInvalidLabelChars(l, asciiOnly));
@@ -4749,6 +4768,27 @@
       render(false);
     }
 
+    function fixInvalidPriorities(fallbackVal) {
+      const valid = new Set((state.config.priorities || []).map(p => String(p.value)));
+      const fallback = valid.has(String(fallbackVal || ''))
+        ? String(fallbackVal)
+        : (valid.has(String(state.config.defaultPriority || '')) ? String(state.config.defaultPriority) : [...valid][0] || '2');
+      pushUndo();
+      let count = 0;
+      state.tests.forEach(t => {
+        const cur = String(t.priority || '').trim();
+        if (!valid.has(cur)) {
+          const norm = normalizeImportedPriority(cur, state.config);
+          t.priority = valid.has(String(norm)) ? String(norm) : fallback;
+          count++;
+        }
+      });
+      persistSuite();
+      const fbLabel = getExportPriorityValue(fallback, state.config);
+      setStatus(`Fixed ${count} test(s) with invalid priority (fallback: ${fallback} → ${fbLabel})`, 'ok');
+      render(false);
+    }
+
     function fixSummaryFormatting() {
       pushUndo();
       state.tests.forEach(t => {
@@ -5681,6 +5721,7 @@
       const hasBadComponents = issues.some(i => i.kind === 'component-format');
       const hasBadSummaries = issues.some(i => i.kind === 'summary-format');
       const hasMissingReqComps = issues.some(i => i.kind === 'req-components');
+      const hasPriorityIssues = issues.some(i => i.kind === 'priority' || i.kind === 'req-priority');
       const csv = buildXrayCsv(state.tests, state.config);
       const prioMapSummary = (state.config.priorities || [])
         .map(p => `${p.value}→${p.csvValue || p.value}`)
@@ -5698,8 +5739,14 @@
                 ? `<div class="banner ok"><span><strong>All checks passed.</strong> Ready for Xray Cloud Test Case Importer (${escHtml(state.config.includeUtf8Bom ? 'UTF-8 BOM' : 'UTF-8')}, delimiter "${escHtml(state.config.csvDelimiter)}", list delimiter "${escHtml(state.config.listDelimiter)}").</span></div>`
                 : `<div class="banner ${errors.length ? 'err' : 'warn'}">
                      <span><strong>${errors.length} error(s), ${warns.length} warning(s)</strong> found across your test cases.</span>
-                     ${(hasSpacedLabels || hasBadComponents || hasBadSummaries || hasMissingReqComps || hasTagIssues) ? `
+                     ${(hasSpacedLabels || hasBadComponents || hasBadSummaries || hasMissingReqComps || hasPriorityIssues || hasTagIssues) ? `
                        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                         ${hasPriorityIssues && (state.config.priorities || []).length > 0 ? `
+                           <select id="export-fix-prio" style="padding:3px 6px" title="Fallback priority for unrecognized values">
+                             ${(state.config.priorities || []).map(p => `<option value="${escHtml(p.value)}" ${String(state.config.defaultPriority) === String(p.value) ? 'selected' : ''}>${escHtml(p.value)} → ${escHtml(p.csvValue || p.value)}</option>`).join('')}
+                           </select>
+                           <button type="button" onclick="fixInvalidPriorities(document.getElementById('export-fix-prio')?.value)">Fix Invalid Priorities</button>
+                         ` : ''}
                          ${hasMissingReqComps && (state.config.components || []).length > 0 ? `
                            <select id="export-fill-comp" style="padding:3px 6px">
                              ${(state.config.components || []).map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('')}
