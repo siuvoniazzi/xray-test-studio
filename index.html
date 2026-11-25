@@ -1274,6 +1274,41 @@
       return false;
     }
 
+    function componentCanonicalKey(comp) {
+      return sanitizeComponent(comp).toLowerCase().replace(/[\s_-]+/g, '');
+    }
+
+    function buildComponentCanonicalMap(tests, config) {
+      const listDelim = (config && config.listDelimiter) || ';';
+      const map = new Map();
+      // 1. Central Config Allowed Components always take highest precedence
+      ((config && config.components) || []).forEach(c => {
+        const clean = sanitizeComponent(c, listDelim);
+        const key = componentCanonicalKey(clean);
+        if (key && !map.has(key)) map.set(key, clean);
+      });
+      // 2. Fallback: first-seen spelling across tests unifies duplicates (e.g. MyVisana vs myVisana)
+      (tests || []).forEach(t => {
+        (t.components || []).forEach(c => {
+          const clean = sanitizeComponent(c, listDelim);
+          const key = componentCanonicalKey(clean);
+          if (key && !map.has(key)) map.set(key, clean);
+        });
+      });
+      return map;
+    }
+
+    function canonicalizeComponent(comp, config, canonicalMap) {
+      const listDelim = (config && config.listDelimiter) || ';';
+      const clean = sanitizeComponent(comp, listDelim);
+      if (!clean) return '';
+      const key = componentCanonicalKey(clean);
+      if (canonicalMap && key && canonicalMap.has(key)) {
+        return canonicalMap.get(key);
+      }
+      return clean;
+    }
+
     function sanitizeSummary(raw) {
       return String(raw ?? '')
         .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
@@ -1340,6 +1375,7 @@
       ];
 
       const lines = [headerRow.map(cell => csvCell(cell, delim)).join(delim)];
+      const compCanonicalMap = buildComponentCanonicalMap(tests, config);
 
       tests.forEach(t => {
         const steps = (t.steps && t.steps.length > 0) ? t.steps : [{ action: '', data: '', expected: '' }];
@@ -1348,7 +1384,7 @@
           .filter(Boolean);
         const labelsList = dedupeStrings(rawLabels);
         const compList = dedupeStrings(
-          (t.components || []).map(c => sanitizeComponent(c, listDelim)).filter(Boolean)
+          (t.components || []).map(c => canonicalizeComponent(c, config, compCanonicalMap)).filter(Boolean)
         );
         const labelsStr = formatMultiValue(labelsList, listDelim);
         const compStr = formatMultiValue(compList, listDelim);
@@ -1379,6 +1415,7 @@
       const validPriorities = new Set((config.priorities || []).map(p => String(p.value)));
       const allowedLabels = new Set(config.labels || []);
       const allowedComps = new Set(config.components || []);
+      const compCanonicalMap = buildComponentCanonicalMap(tests, config);
 
       tests.forEach((t, idx) => {
         if (!String(t.summary || '').trim()) {
@@ -1406,7 +1443,9 @@
           }
         }
         const listDelim = config.listDelimiter || ';';
-        const badComps = (t.components || []).filter(c => hasInvalidComponentChars(c, listDelim));
+        const badComps = (t.components || []).filter(c =>
+          hasInvalidComponentChars(c, listDelim) || canonicalizeComponent(c, config, compCanonicalMap) !== c
+        );
         if (badComps.length > 0) {
           issues.push({
             severity: 'warn',
@@ -1414,7 +1453,7 @@
             testId: t.id,
             kind: 'component-format',
             values: badComps,
-            message: `${t.id}: Component(s) have extra whitespace, line breaks, or list delimiter "${listDelim}" — auto-cleaned on export (${badComps.map(c => sanitizeComponent(c, listDelim) || '(removed)').join(', ')})`
+            message: `${t.id}: Component(s) have inconsistent casing/spacing or formatting — auto-normalized on export (${badComps.map(c => `${c} → ${canonicalizeComponent(c, config, compCanonicalMap) || '(removed)'}`).join(', ')})`
           });
         }
         if (!config.allowCustomLabels) {
@@ -1824,6 +1863,17 @@
 
       const tests = [];
       const byId = new Map();
+      const compCanonicalMap = buildComponentCanonicalMap([], config);
+      const normImportedComps = (raw) => dedupeStrings(
+        parseMultiField(raw).map(c => {
+          const clean = sanitizeComponent(c, (config && config.listDelimiter) || ';');
+          const key = componentCanonicalKey(clean);
+          if (!key) return '';
+          if (compCanonicalMap.has(key)) return compCanonicalMap.get(key);
+          compCanonicalMap.set(key, clean);
+          return clean;
+        }).filter(Boolean)
+      );
       let autoNum = 1;
       let lastTest = null;
 
@@ -1855,7 +1905,7 @@
             description: rawDesc,
             priority: normalizeImportedPriority(rawPrio, config),
             labels: parseMultiField(rawLabels),
-            components: parseMultiField(rawComps),
+            components: normImportedComps(rawComps),
             requirement: rawReq,
             repoPath: rawPath,
             steps: []
@@ -1867,7 +1917,7 @@
         if (rawSummary && !target.summary) target.summary = rawSummary;
         if (rawDesc && !target.description) target.description = rawDesc;
         if (rawLabels && target.labels.length === 0) target.labels = parseMultiField(rawLabels);
-        if (rawComps && target.components.length === 0) target.components = parseMultiField(rawComps);
+        if (rawComps && target.components.length === 0) target.components = normImportedComps(rawComps);
         if (rawReq && !target.requirement) target.requirement = rawReq;
         if (rawPath && !target.repoPath) target.repoPath = rawPath;
 
@@ -2237,9 +2287,17 @@
       const clean = String(candidate || '').trim();
       if (!clean) return null;
       const lowerMap = new Map();
-      (allowedList || []).forEach(item => lowerMap.set(String(item).toLowerCase(), String(item)));
+      const canonicalMap = new Map();
+      (allowedList || []).forEach(item => {
+        const s = String(item);
+        lowerMap.set(s.toLowerCase(), s);
+        const ck = componentCanonicalKey(s);
+        if (ck && !canonicalMap.has(ck)) canonicalMap.set(ck, s);
+      });
       const exactCase = lowerMap.get(clean.toLowerCase());
       if (exactCase) return exactCase;
+      const canonicalMatch = canonicalMap.get(componentCanonicalKey(clean));
+      if (canonicalMatch) return canonicalMatch;
       if (allowCustom) return clean;
       droppedSet.add(clean);
       return null;
@@ -4606,13 +4664,16 @@
     function fixComponentFormatting() {
       const listDelim = state.config.listDelimiter || ';';
       pushUndo();
+      const compMap = buildComponentCanonicalMap(state.tests, state.config);
       state.tests.forEach(t => {
-        t.components = dedupeStrings((t.components || []).map(c => sanitizeComponent(c, listDelim)).filter(Boolean));
+        t.components = dedupeStrings((t.components || []).map(c => canonicalizeComponent(c, state.config, compMap)).filter(Boolean));
       });
-      state.config.components = dedupeStrings((state.config.components || []).map(c => sanitizeComponent(c, listDelim)).filter(Boolean));
+      state.config.components = dedupeStrings(
+        (state.config.components || []).map(c => canonicalizeComponent(c, state.config, compMap)).filter(Boolean)
+      );
       persistConfig();
       persistSuite();
-      setStatus('Cleaned whitespace, line breaks, and delimiters in Components', 'ok');
+      setStatus('Unified Component spellings, casing, and formatting', 'ok');
       render(false);
     }
 
