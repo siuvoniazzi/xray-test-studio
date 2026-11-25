@@ -1274,6 +1274,21 @@
       return false;
     }
 
+    function sanitizeSummary(raw) {
+      return String(raw ?? '')
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        .replace(/[\r\n\t]+/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+        .slice(0, 255);
+    }
+
+    function hasInvalidSummaryFormat(summary) {
+      const s = String(summary ?? '');
+      if (!s.trim()) return false;
+      return /[\r\n\t\x00-\x1F\x7F]/.test(s) || s.trim().length > 255;
+    }
+
     function formatMultiValue(items, listDelimiter) {
       const delim = listDelimiter || ';';
       const cleaned = dedupeStrings(items || []);
@@ -1342,7 +1357,7 @@
           const isFirst = idx === 0;
           const rowCells = [
             csvCell(t.id, delim),
-            csvCell(isFirst ? (t.summary || '') : '', delim),
+            csvCell(isFirst ? sanitizeSummary(t.summary || '') : '', delim),
             csvCell(isFirst ? (t.description || '') : '', delim),
             csvCell(isFirst ? (config.defaultTestType || 'Manual') : '', delim),
             csvCell(isFirst ? getExportPriorityValue(t.priority, config) : '', delim),
@@ -1368,6 +1383,8 @@
       tests.forEach((t, idx) => {
         if (!String(t.summary || '').trim()) {
           issues.push({ severity: 'error', testIdx: idx, testId: t.id, kind: 'summary', message: `${t.id}: Missing Test Summary (mandatory in Jira)` });
+        } else if (hasInvalidSummaryFormat(t.summary)) {
+          issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'summary-format', message: `${t.id}: Test Summary contains line breaks or exceeds 255 chars (forbidden in Jira) — auto-cleaned on export` });
         }
         const hasAnyStepText = (t.steps || []).some(s =>
           String(s.action || '').trim() || String(s.data || '').trim() || String(s.expected || '').trim()
@@ -1812,7 +1829,7 @@
 
       dataRows.forEach(row => {
         const rawId = getVal(row, mapping.tcid);
-        const rawSummary = getVal(row, mapping.summary);
+        const rawSummary = sanitizeSummary(getVal(row, mapping.summary));
         const rawDesc = getVal(row, mapping.description);
         const rawPrio = getVal(row, mapping.priority);
         const rawLabels = getVal(row, mapping.labels);
@@ -4599,6 +4616,16 @@
       render(false);
     }
 
+    function fixSummaryFormatting() {
+      pushUndo();
+      state.tests.forEach(t => {
+        if (t.summary) t.summary = sanitizeSummary(t.summary);
+      });
+      persistSuite();
+      setStatus('Removed line breaks and extra whitespace from Test Summaries', 'ok');
+      render(false);
+    }
+
     function updatePriorityCsvValue(idx, rawVal) {
       const p = (state.config.priorities || [])[idx];
       if (!p) return;
@@ -5498,6 +5525,7 @@
       const hasTagIssues = issues.some(i => i.kind === 'labels' || i.kind === 'components');
       const hasSpacedLabels = issues.some(i => i.kind === 'label-spaces');
       const hasBadComponents = issues.some(i => i.kind === 'component-format');
+      const hasBadSummaries = issues.some(i => i.kind === 'summary-format');
       const csv = buildXrayCsv(state.tests, state.config);
       const prioMapSummary = (state.config.priorities || [])
         .map(p => `${p.value}→${p.csvValue || p.value}`)
@@ -5515,8 +5543,11 @@
                 ? `<div class="banner ok"><span><strong>All checks passed.</strong> Ready for Xray Cloud Test Case Importer (${escHtml(state.config.includeUtf8Bom ? 'UTF-8 BOM' : 'UTF-8')}, delimiter "${escHtml(state.config.csvDelimiter)}", list delimiter "${escHtml(state.config.listDelimiter)}").</span></div>`
                 : `<div class="banner ${errors.length ? 'err' : 'warn'}">
                      <span><strong>${errors.length} error(s), ${warns.length} warning(s)</strong> found across your test cases.</span>
-                     ${(hasSpacedLabels || hasBadComponents || hasTagIssues) ? `
+                     ${(hasSpacedLabels || hasBadComponents || hasBadSummaries || hasTagIssues) ? `
                        <div style="display:flex;gap:6px;flex-wrap:wrap">
+                         ${hasBadSummaries ? `
+                           <button type="button" onclick="fixSummaryFormatting()">Clean Summaries</button>
+                         ` : ''}
                          ${hasSpacedLabels ? `
                            <button type="button" onclick="fixSpacedLabels('_')">Sanitize Labels → _</button>
                            <button type="button" onclick="fixSpacedLabels('-')">Sanitize Labels → -</button>
