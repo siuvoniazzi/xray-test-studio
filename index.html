@@ -1042,15 +1042,18 @@
   "priorities": [
     {
       "value": "1",
-      "label": "1 — High"
+      "label": "1 — High",
+      "csvValue": "Prio 1"
     },
     {
       "value": "2",
-      "label": "2 — Medium"
+      "label": "2 — Medium",
+      "csvValue": "Prio 2"
     },
     {
       "value": "3",
-      "label": "3 — Low"
+      "label": "3 — Low",
+      "csvValue": "Prio 3"
     }
   ],
   "defaultPriority": "2",
@@ -1129,7 +1132,18 @@
       if (Array.isArray(raw.priorities) && raw.priorities.length > 0) {
         cfg.priorities = raw.priorities
           .filter(p => p && String(p.value || '').trim())
-          .map(p => ({ value: String(p.value).trim(), label: String(p.label || p.value).trim() }));
+          .map(p => {
+            const val = String(p.value).trim();
+            const baseMatch = (base.priorities || []).find(bp => String(bp.value) === val);
+            const csvVal = (p.csvValue !== undefined && String(p.csvValue).trim())
+              ? String(p.csvValue).trim()
+              : (baseMatch && baseMatch.csvValue ? String(baseMatch.csvValue).trim() : val);
+            return {
+              value: val,
+              label: String(p.label || val).trim(),
+              csvValue: csvVal
+            };
+          });
       }
       if (raw.defaultPriority) cfg.defaultPriority = String(raw.defaultPriority).trim();
       if (raw.defaultTestType) cfg.defaultTestType = String(raw.defaultTestType).trim();
@@ -1226,6 +1240,16 @@
       return s;
     }
 
+    function getExportPriorityValue(val, config) {
+      const s = String(val || '').trim();
+      if (!s) return '';
+      const found = (config.priorities || []).find(p => String(p.value) === s);
+      if (found && String(found.csvValue || '').trim()) {
+        return String(found.csvValue).trim();
+      }
+      return s;
+    }
+
     function buildXrayCsv(tests, config) {
       const delim = config.csvDelimiter || ',';
       const listDelim = config.listDelimiter || ';';
@@ -1263,7 +1287,7 @@
             csvCell(isFirst ? (t.summary || '') : '', delim),
             csvCell(isFirst ? (t.description || '') : '', delim),
             csvCell(isFirst ? (config.defaultTestType || 'Manual') : '', delim),
-            csvCell(isFirst ? (t.priority || '') : '', delim),
+            csvCell(isFirst ? getExportPriorityValue(t.priority, config) : '', delim),
             csvCell(isFirst ? labelsStr : '', delim, isFirst && labelsList.length > 1),
             csvCell(isFirst ? compStr : '', delim, isFirst && compList.length > 1),
             csvCell(isFirst ? (t.requirement || '') : '', delim),
@@ -1686,9 +1710,16 @@
       const s = String(raw || '').trim();
       if (!s) return config.defaultPriority || '2';
       const lower = s.toLowerCase();
-      if (/^1\b/.test(lower) || lower === 'high' || lower === 'critical' || lower === 'p1') return '1';
-      if (/^2\b/.test(lower) || lower === 'medium' || lower === 'normal' || lower === 'p2') return '2';
-      if (/^3\b/.test(lower) || lower === 'low' || lower === 'minor' || lower === 'p3') return '3';
+      const configured = (config && Array.isArray(config.priorities)) ? config.priorities : [];
+      const exact = configured.find(p =>
+        String(p.value || '').trim().toLowerCase() === lower ||
+        String(p.csvValue || '').trim().toLowerCase() === lower ||
+        String(p.label || '').trim().toLowerCase() === lower
+      );
+      if (exact) return String(exact.value);
+      if (/^(1\b|p\s*1\b|prio(?:rity)?\s*1\b)/.test(lower) || lower === 'high' || lower === 'critical') return '1';
+      if (/^(2\b|p\s*2\b|prio(?:rity)?\s*2\b)/.test(lower) || lower === 'medium' || lower === 'normal') return '2';
+      if (/^(3\b|p\s*3\b|prio(?:rity)?\s*3\b)/.test(lower) || lower === 'low' || lower === 'minor') return '3';
       return s;
     }
 
@@ -2372,9 +2403,9 @@
       allowCustomLabels: false,
       allowCustomComponents: false,
       priorities: [
-        { value: '1', label: '1 — High' },
-        { value: '2', label: '2 — Medium' },
-        { value: '3', label: '3 — Low' }
+        { value: '1', label: '1 — High', csvValue: 'Prio 1' },
+        { value: '2', label: '2 — Medium', csvValue: 'Prio 2' },
+        { value: '3', label: '3 — Low', csvValue: 'Prio 3' }
       ],
       defaultPriority: '2',
       defaultTestType: 'Manual',
@@ -3995,6 +4026,9 @@
       (d.priorities || []).forEach((p, idx) => {
         const lbl = getVal(`cfg-prio-label-${idx}`);
         if (lbl !== null && lbl.trim()) p.label = lbl.trim();
+        const csvV = getVal(`cfg-prio-csv-${idx}`);
+        if (csvV !== null && csvV.trim()) p.csvValue = csvV.trim();
+        else if (csvV !== null) p.csvValue = p.value;
       });
 
       Object.keys(d.headers).forEach(k => {
@@ -4989,10 +5023,16 @@
               <div class="two-col">
                 <div class="section-box">
                   <div style="font-weight:700">Priorities &amp; Defaults</div>
+                  <div style="display:flex;align-items:center;gap:6px;font-size:11px" class="muted">
+                    <span style="width:28px;text-align:center">Key</span>
+                    <span style="flex:1">Display Label</span>
+                    <span style="width:120px">Jira / CSV Value</span>
+                  </div>
                   ${(d.priorities || []).map((p, idx) => `
                     <div style="display:flex;align-items:center;gap:6px">
-                      <span class="prio-badge ${prioClass(p.value)}">${escHtml(p.value)}</span>
+                      <span class="prio-badge ${prioClass(p.value)}" style="width:28px;text-align:center">${escHtml(p.value)}</span>
                       <input id="cfg-prio-label-${idx}" type="text" value="${escHtml(p.label)}" style="flex:1" />
+                      <input id="cfg-prio-csv-${idx}" type="text" value="${escHtml(p.csvValue || p.value)}" placeholder="e.g. Prio ${escHtml(p.value)}" class="mono" style="width:120px" title="Exact Jira Priority name written to exported Xray CSV" />
                     </div>
                   `).join('')}
                   <label style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -5353,6 +5393,9 @@
       const hasTagIssues = issues.some(i => i.kind === 'labels' || i.kind === 'components');
       const hasSpacedLabels = issues.some(i => i.kind === 'label-spaces');
       const csv = buildXrayCsv(state.tests, state.config);
+      const prioMapSummary = (state.config.priorities || [])
+        .map(p => `${p.value}→${p.csvValue || p.value}`)
+        .join(', ');
 
       return `
         <div class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Xray Cloud Export and Validation">
@@ -5363,7 +5406,7 @@
             </div>
             <div class="modal-body">
               ${issues.length === 0
-                ? `<div class="banner ok"><strong>All checks passed.</strong> Ready for Xray Cloud Test Case Importer (${escHtml(state.config.includeUtf8Bom ? 'UTF-8 BOM' : 'UTF-8')}, delimiter "${escHtml(state.config.csvDelimiter)}", list delimiter "${escHtml(state.config.listDelimiter)}").</div>`
+                ? `<div class="banner ok"><span><strong>All checks passed.</strong> Ready for Xray Cloud Test Case Importer (${escHtml(state.config.includeUtf8Bom ? 'UTF-8 BOM' : 'UTF-8')}, delimiter "${escHtml(state.config.csvDelimiter)}", list delimiter "${escHtml(state.config.listDelimiter)}", priority CSV: ${escHtml(prioMapSummary)}).</span><button type="button" onclick="openConfigModal()">Edit Mapping</button></div>`
                 : `<div class="banner ${errors.length ? 'err' : 'warn'}">
                      <span><strong>${errors.length} error(s), ${warns.length} warning(s)</strong> found across your test cases.</span>
                      ${(hasSpacedLabels || hasTagIssues) ? `
