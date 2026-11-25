@@ -1410,12 +1410,31 @@
       return lines.join('\n');
     }
 
-    function validateSuite(tests, config) {
+    const PROJECT_REQUIRED_FIELD_DEFS = [
+      { key: 'components', label: 'Components' },
+      { key: 'labels', label: 'Labels' },
+      { key: 'description', label: 'Description' },
+      { key: 'priority', label: 'Priority' },
+      { key: 'requirement', label: 'Requirement' },
+      { key: 'repoPath', label: 'Repo Path' }
+    ];
+
+    function normalizeRequiredFields(raw) {
+      const out = {};
+      const src = (raw && typeof raw === 'object') ? raw : {};
+      PROJECT_REQUIRED_FIELD_DEFS.forEach(f => {
+        out[f.key] = !!src[f.key];
+      });
+      return out;
+    }
+
+    function validateSuite(tests, config, project) {
       const issues = [];
       const validPriorities = new Set((config.priorities || []).map(p => String(p.value)));
       const allowedLabels = new Set(config.labels || []);
       const allowedComps = new Set(config.components || []);
       const compCanonicalMap = buildComponentCanonicalMap(tests, config);
+      const reqFields = normalizeRequiredFields(project && project.requiredFields);
 
       tests.forEach((t, idx) => {
         if (!String(t.summary || '').trim()) {
@@ -1467,6 +1486,24 @@
           if (extraComps.length > 0) {
             issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'components', values: extraComps, message: `${t.id}: Unconfigured component(s): ${extraComps.join(', ')}` });
           }
+        }
+        if (reqFields.components && (t.components || []).filter(c => String(c || '').trim()).length === 0) {
+          issues.push({ severity: 'error', testIdx: idx, testId: t.id, kind: 'req-components', message: `${t.id}: Missing Component (required in Jira for this project)` });
+        }
+        if (reqFields.labels && (t.labels || []).filter(l => String(l || '').trim()).length === 0) {
+          issues.push({ severity: 'error', testIdx: idx, testId: t.id, kind: 'req-labels', message: `${t.id}: Missing Label (required in Jira for this project)` });
+        }
+        if (reqFields.description && !String(t.description || '').trim()) {
+          issues.push({ severity: 'error', testIdx: idx, testId: t.id, kind: 'req-description', message: `${t.id}: Missing Description (required in Jira for this project)` });
+        }
+        if (reqFields.priority && !String(t.priority || '').trim()) {
+          issues.push({ severity: 'error', testIdx: idx, testId: t.id, kind: 'req-priority', message: `${t.id}: Missing Priority (required in Jira for this project)` });
+        }
+        if (reqFields.requirement && !String(t.requirement || '').trim()) {
+          issues.push({ severity: 'error', testIdx: idx, testId: t.id, kind: 'req-requirement', message: `${t.id}: Missing Requirement (required in Jira for this project)` });
+        }
+        if (reqFields.repoPath && !String(t.repoPath || '').trim()) {
+          issues.push({ severity: 'error', testIdx: idx, testId: t.id, kind: 'req-repoPath', message: `${t.id}: Missing Test Repository Path (required in Jira for this project)` });
         }
       });
 
@@ -1967,6 +2004,7 @@
         id: project.id,
         name: project.name,
         jiraProjectKey: project.jiraProjectKey || '',
+        requiredFields: normalizeRequiredFields(project.requiredFields),
         updatedAt: project.updatedAt || new Date().toISOString(),
         tests: project.tests || []
       }, null, 2);
@@ -1988,6 +2026,7 @@
         fileName: String(fileName || (stem + '.json')),
         name: String(parsed.name || stem),
         jiraProjectKey: String(parsed.jiraProjectKey || ''),
+        requiredFields: normalizeRequiredFields(parsed.requiredFields),
         updatedAt: String(parsed.updatedAt || new Date().toISOString()),
         tests: parsed.tests
       };
@@ -3109,7 +3148,7 @@
       }
     }
 
-    async function createProject(name, jiraKey) {
+    async function createProject(name, jiraKey, requiredFields) {
       const cleanName = String(name || '').trim();
       if (!cleanName) return;
       const existingNames = state.projects.map(p => p.fileName);
@@ -3119,6 +3158,7 @@
         fileName,
         name: cleanName,
         jiraProjectKey: String(jiraKey || '').trim().toUpperCase(),
+        requiredFields: normalizeRequiredFields(requiredFields),
         updatedAt: new Date().toISOString(),
         tests: [{
           id: 'TC-01',
@@ -3150,13 +3190,16 @@
       closeModal(`Created project "${proj.name}" (${proj.fileName})`);
     }
 
-    async function renameProject(idx, nextName, nextJiraKey) {
+    async function renameProject(idx, nextName, nextJiraKey, nextRequiredFields) {
       const proj = state.projects[idx];
       if (!proj) return;
       const cleanName = String(nextName || '').trim();
       if (!cleanName) return;
       proj.name = cleanName;
       proj.jiraProjectKey = String(nextJiraKey || '').trim().toUpperCase();
+      if (nextRequiredFields !== undefined) {
+        proj.requiredFields = normalizeRequiredFields(nextRequiredFields);
+      }
       proj.updatedAt = new Date().toISOString();
       persistWorkspaceLocalOnly();
       if (state.dirHandle) {
@@ -3179,6 +3222,7 @@
         fileName,
         name: newName,
         jiraProjectKey: src.jiraProjectKey || '',
+        requiredFields: normalizeRequiredFields(src.requiredFields),
         updatedAt: new Date().toISOString(),
         tests: deepClone(src.tests || [])
       };
@@ -4619,7 +4663,7 @@
     }
 
     function fixUnknownTagsToConfig() {
-      const issues = validateSuite(state.tests, state.config);
+      const issues = validateSuite(state.tests, state.config, activeProject());
       const extraLabels = [];
       const extraComps = [];
       issues.forEach(iss => {
@@ -4674,6 +4718,22 @@
       persistConfig();
       persistSuite();
       setStatus('Unified Component spellings, casing, and formatting', 'ok');
+      render(false);
+    }
+
+    function fillMissingComponents(compVal) {
+      const clean = sanitizeComponent(compVal, state.config.listDelimiter || ';');
+      if (!clean) return;
+      pushUndo();
+      let count = 0;
+      state.tests.forEach(t => {
+        if ((t.components || []).filter(c => String(c || '').trim()).length === 0) {
+          t.components = [clean];
+          count++;
+        }
+      });
+      persistSuite();
+      setStatus(`Assigned component "${clean}" to ${count} test(s) missing a component`, 'ok');
       render(false);
     }
 
@@ -4751,7 +4811,7 @@
       const allowedL = new Set(state.config.labels || []);
       const allowedC = new Set(state.config.components || []);
       const issuesByTest = new Map();
-      validateSuite(state.tests, state.config).forEach(iss => {
+      validateSuite(state.tests, state.config, activeProject()).forEach(iss => {
         const prev = issuesByTest.get(iss.testIdx);
         if (!prev || iss.severity === 'error') issuesByTest.set(iss.testIdx, iss.severity);
       });
@@ -4863,9 +4923,12 @@
           }).join('')
         : '<span class="faint">None</span>';
 
+      const projReq = normalizeRequiredFields(activeProject()?.requiredFields);
+      const compMissing = projReq.components && (t.components || []).length === 0;
+      const labelMissing = projReq.labels && (t.labels || []).length === 0;
       const compChips = (t.components || []).length > 0
         ? t.components.map(c => `<span class="chip comp ${!state.config.allowCustomComponents && !allowedC.has(c) ? 'invalid' : ''}">${escHtml(c)}</span>`).join('')
-        : '<span class="faint">None</span>';
+        : (compMissing ? '<span style="color:var(--error);font-weight:600">Required</span>' : '<span class="faint">None</span>');
 
       const prioBtns = (state.config.priorities || []).map(p => {
         const active = String(t.priority) === String(p.value);
@@ -4898,13 +4961,13 @@
           ${descNode}
 
           <div class="meta-row-fields">
-            <div class="field-pill" onclick="openPicker('labels')" title="Pick Labels (l)">
-              <span class="muted">Labels:</span>
+            <div class="field-pill" style="${labelMissing ? 'border-color:var(--error)' : ''}" onclick="openPicker('labels')" title="Pick Labels (l)">
+              <span class="muted">Labels${projReq.labels ? '<span style="color:var(--error);font-weight:700" title="Required in Jira for this project">*</span>' : ''}:</span>
               <div class="chip-row">${labelChips}</div>
               <kbd>l</kbd>
             </div>
-            <div class="field-pill" onclick="openPicker('components')" title="Pick Components (c)">
-              <span class="muted">Components:</span>
+            <div class="field-pill" style="${compMissing ? 'border-color:var(--error)' : ''}" onclick="openPicker('components')" title="Pick Components (c)">
+              <span class="muted">Components${projReq.components ? '<span style="color:var(--error);font-weight:700" title="Required in Jira for this project">*</span>' : ''}:</span>
               <div class="chip-row">${compChips}</div>
               <kbd>c</kbd>
             </div>
@@ -5580,13 +5643,14 @@
     }
 
     function renderExportModal() {
-      const issues = validateSuite(state.tests, state.config);
+      const issues = validateSuite(state.tests, state.config, activeProject());
       const errors = issues.filter(i => i.severity === 'error');
       const warns = issues.filter(i => i.severity === 'warn');
       const hasTagIssues = issues.some(i => i.kind === 'labels' || i.kind === 'components');
       const hasSpacedLabels = issues.some(i => i.kind === 'label-spaces');
       const hasBadComponents = issues.some(i => i.kind === 'component-format');
       const hasBadSummaries = issues.some(i => i.kind === 'summary-format');
+      const hasMissingReqComps = issues.some(i => i.kind === 'req-components');
       const csv = buildXrayCsv(state.tests, state.config);
       const prioMapSummary = (state.config.priorities || [])
         .map(p => `${p.value}→${p.csvValue || p.value}`)
@@ -5604,8 +5668,14 @@
                 ? `<div class="banner ok"><span><strong>All checks passed.</strong> Ready for Xray Cloud Test Case Importer (${escHtml(state.config.includeUtf8Bom ? 'UTF-8 BOM' : 'UTF-8')}, delimiter "${escHtml(state.config.csvDelimiter)}", list delimiter "${escHtml(state.config.listDelimiter)}").</span></div>`
                 : `<div class="banner ${errors.length ? 'err' : 'warn'}">
                      <span><strong>${errors.length} error(s), ${warns.length} warning(s)</strong> found across your test cases.</span>
-                     ${(hasSpacedLabels || hasBadComponents || hasBadSummaries || hasTagIssues) ? `
-                       <div style="display:flex;gap:6px;flex-wrap:wrap">
+                     ${(hasSpacedLabels || hasBadComponents || hasBadSummaries || hasMissingReqComps || hasTagIssues) ? `
+                       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                         ${hasMissingReqComps && (state.config.components || []).length > 0 ? `
+                           <select id="export-fill-comp" style="padding:3px 6px">
+                             ${(state.config.components || []).map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('')}
+                           </select>
+                           <button type="button" onclick="fillMissingComponents(document.getElementById('export-fill-comp')?.value)">Fill Missing Components</button>
+                         ` : ''}
                          ${hasBadSummaries ? `
                            <button type="button" onclick="fixSummaryFormatting()">Clean Summaries</button>
                          ` : ''}
@@ -5742,15 +5812,26 @@
         `;
       }
 
+      const draftReq = normalizeRequiredFields(pm.draftRequiredFields);
       const formBox = (pm.submode === 'new' || pm.submode === 'rename')
         ? `
           <div class="section-box" style="border-color:var(--primary)">
-            <div style="font-weight:700">${pm.submode === 'new' ? 'Create New Project' : 'Rename Project'}</div>
+            <div style="font-weight:700">${pm.submode === 'new' ? 'Create New Project' : 'Project Settings'}</div>
             <div style="display:grid;grid-template-columns:1fr 140px auto auto;gap:8px;align-items:center">
               <input id="proj-name-input" type="text" value="${escHtml(pm.draftName)}" placeholder="Project name (e.g. Checkout Redesign)" />
               <input id="proj-key-input" type="text" value="${escHtml(pm.draftKey)}" placeholder="Jira key (SHOP)" class="mono" />
               <button type="button" class="primary" onclick="submitProjectForm()">Save <kbd>Enter</kbd></button>
               <button type="button" onclick="state.projectsModal.submode='list';render(true)">Cancel <kbd>Esc</kbd></button>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px;font-size:12px">
+              <span class="muted" style="font-weight:600">Required in Jira:</span>
+              ${PROJECT_REQUIRED_FIELD_DEFS.map(f => `
+                <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer">
+                  <input id="proj-req-${f.key}" type="checkbox" ${draftReq[f.key] ? 'checked' : ''} />
+                  <span>${escHtml(f.label)}</span>
+                </label>
+              `).join('')}
+              <span class="faint">(Summary is always required)</span>
             </div>
           </div>
         `
@@ -5770,25 +5851,28 @@
                 ${state.projects.map((p, idx) => {
                   const isActive = idx === state.activeProjectIdx;
                   const hl = idx === pm.idx;
+                  const reqList = PROJECT_REQUIRED_FIELD_DEFS.filter(f => p.requiredFields && p.requiredFields[f.key]).map(f => f.label);
                   return `
-                    <button
+                    <div
                       id="proj-item-${idx}"
-                      type="button"
                       tabindex="-1"
                       onclick="state.projectsModal.idx=${idx};switchProject(${idx}, true)"
                       class="list-item ${hl ? 'highlighted' : ''}"
+                      style="cursor:pointer"
                     >
-                      <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap">
                         <span class="mono" style="font-weight:700;color:var(${isActive ? '--success' : '--text-faint'})">${isActive ? '●' : '○'}</span>
                         <span style="font-weight:700">${escHtml(p.name)}</span>
                         ${p.jiraProjectKey ? `<span class="chip comp mono">${escHtml(p.jiraProjectKey)}</span>` : ''}
+                        ${reqList.length > 0 ? `<span class="chip label" title="Required fields in Jira">Req: ${escHtml(reqList.join(', '))}</span>` : ''}
                         <span class="mono faint" style="font-size:12px">${escHtml(p.fileName)}</span>
                       </div>
-                      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+                      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
                         <span class="muted">${(p.tests || []).length} test(s)</span>
+                        <button type="button" onclick="event.stopPropagation();state.projectsModal.idx=${idx};startProjectForm('rename')" title="Edit project name, Jira key &amp; required fields (r)">Settings</button>
                         ${hl ? '<kbd>Enter</kbd>' : ''}
                       </div>
-                    </button>
+                    </div>
                   `;
                 }).join('')}
               </div>
@@ -5798,7 +5882,7 @@
                 <span><kbd>↑</kbd><kbd>↓</kbd> Move</span>
                 <span><kbd>Enter</kbd> Open</span>
                 <span><kbd>n</kbd> New</span>
-                <span><kbd>r</kbd> Rename</span>
+                <span><kbd>r</kbd> Settings</span>
                 <span><kbd>d</kbd> Duplicate</span>
                 <span><kbd>Del</kbd> Delete</span>
               </div>
@@ -5823,9 +5907,11 @@
       if (submode === 'rename' && proj) {
         pm.draftName = proj.name;
         pm.draftKey = proj.jiraProjectKey || '';
+        pm.draftRequiredFields = normalizeRequiredFields(proj.requiredFields);
       } else {
         pm.draftName = '';
         pm.draftKey = '';
+        pm.draftRequiredFields = normalizeRequiredFields({});
       }
       render(true);
     }
@@ -5833,15 +5919,20 @@
     function submitProjectForm() {
       const nameVal = document.getElementById('proj-name-input')?.value || '';
       const keyVal = document.getElementById('proj-key-input')?.value || '';
+      const reqFields = {};
+      PROJECT_REQUIRED_FIELD_DEFS.forEach(f => {
+        const el = document.getElementById(`proj-req-${f.key}`);
+        reqFields[f.key] = !!(el && el.checked);
+      });
       if (!nameVal.trim()) {
         setStatus('Project name cannot be empty', 'warn');
         render(true);
         return;
       }
       if (state.projectsModal.submode === 'new') {
-        createProject(nameVal, keyVal);
+        createProject(nameVal, keyVal, reqFields);
       } else if (state.projectsModal.submode === 'rename') {
-        renameProject(state.projectsModal.idx, nameVal, keyVal);
+        renameProject(state.projectsModal.idx, nameVal, keyVal, reqFields);
       }
     }
 
