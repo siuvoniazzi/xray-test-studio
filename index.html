@@ -1062,6 +1062,7 @@
   "csvDelimiter": ",",
   "listDelimiter": ";",
   "labelSpaceReplacement": "_",
+  "labelAsciiOnly": false,
   "includeUtf8Bom": true,
   "autoWriteCsvToFolder": true,
   "ai": {
@@ -1151,6 +1152,7 @@
       if (raw.csvDelimiter === ',' || raw.csvDelimiter === ';') cfg.csvDelimiter = raw.csvDelimiter;
       if (typeof raw.listDelimiter === 'string' && raw.listDelimiter.length > 0) cfg.listDelimiter = raw.listDelimiter;
       if (raw.labelSpaceReplacement === '_' || raw.labelSpaceReplacement === '-' || raw.labelSpaceReplacement === 'none') cfg.labelSpaceReplacement = raw.labelSpaceReplacement;
+      if (typeof raw.labelAsciiOnly === 'boolean') cfg.labelAsciiOnly = raw.labelAsciiOnly;
       if (typeof raw.includeUtf8Bom === 'boolean') cfg.includeUtf8Bom = raw.includeUtf8Bom;
       if (typeof raw.autoWriteCsvToFolder === 'boolean') cfg.autoWriteCsvToFolder = raw.autoWriteCsvToFolder;
       if (raw.ai && typeof raw.ai === 'object') {
@@ -1212,12 +1214,64 @@
       return getVisibleStepColumns(config);
     }
 
-    function sanitizeLabel(label, replacement = '_') {
+    function transliterateLabel(str) {
+      return String(str ?? '')
+        .replace(/ä/g, 'ae').replace(/Ä/g, 'Ae')
+        .replace(/ö/g, 'oe').replace(/Ö/g, 'Oe')
+        .replace(/ü/g, 'ue').replace(/Ü/g, 'Ue')
+        .replace(/ß/g, 'ss')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function hasInvalidLabelChars(label, asciiOnly = false) {
       const s = String(label ?? '').trim();
+      if (!s) return false;
+      if (s.length > 255) return true;
+      if (/\s/.test(s)) return true;
+      if (asciiOnly) return /[^A-Za-z0-9._-]/.test(s);
+      return /[^\p{L}\p{N}._-]/u.test(s);
+    }
+
+    function sanitizeLabel(label, replacement = '_', asciiOnly = false) {
+      let s = String(label ?? '').trim();
+      if (!s) return '';
+      if (asciiOnly) s = transliterateLabel(s);
       if (replacement === '_' || replacement === '-') {
-        return s.replace(/\s+/g, replacement);
+        const escRep = replacement === '-' ? '\\-' : '_';
+        const invalidRe = asciiOnly ? /[^A-Za-z0-9._-]+/g : /[^\p{L}\p{N}._-]+/gu;
+        s = s
+          .replace(invalidRe, replacement)
+          .replace(new RegExp(escRep + '{2,}', 'g'), replacement)
+          .replace(new RegExp('^' + escRep + '+|' + escRep + '+$', 'g'), '');
       }
-      return s;
+      return s.slice(0, 255);
+    }
+
+    function sanitizeComponent(comp, listDelimiter = ';') {
+      const delim = listDelimiter || ';';
+      let s = String(comp ?? '')
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        .replace(/[\r\n\t]+/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      if (!s) return '';
+      if (delim && s.includes(delim)) {
+        const fallback = delim === ',' ? '-' : ',';
+        s = s.split(delim).map(p => p.trim()).filter(Boolean).join(fallback + ' ');
+      }
+      return s.slice(0, 255);
+    }
+
+    function hasInvalidComponentChars(comp, listDelimiter = ';') {
+      const raw = String(comp ?? '');
+      if (!raw.trim()) return false;
+      const delim = listDelimiter || ';';
+      if (raw !== raw.trim()) return true;
+      if (/[\r\n\t\x00-\x1F\x7F]/.test(raw)) return true;
+      if (/\s{2,}/.test(raw)) return true;
+      if (delim && raw.includes(delim)) return true;
+      if (raw.length > 255) return true;
+      return false;
     }
 
     function formatMultiValue(items, listDelimiter) {
@@ -1274,9 +1328,13 @@
 
       tests.forEach(t => {
         const steps = (t.steps && t.steps.length > 0) ? t.steps : [{ action: '', data: '', expected: '' }];
-        const rawLabels = (t.labels || []).map(l => (labelRep === '_' || labelRep === '-') ? sanitizeLabel(l, labelRep) : l);
+        const rawLabels = (t.labels || [])
+          .map(l => (labelRep === '_' || labelRep === '-') ? sanitizeLabel(l, labelRep, !!config.labelAsciiOnly) : l)
+          .filter(Boolean);
         const labelsList = dedupeStrings(rawLabels);
-        const compList = dedupeStrings(t.components || []);
+        const compList = dedupeStrings(
+          (t.components || []).map(c => sanitizeComponent(c, listDelim)).filter(Boolean)
+        );
         const labelsStr = formatMultiValue(labelsList, listDelim);
         const compStr = formatMultiValue(compList, listDelim);
 
@@ -1320,14 +1378,27 @@
         if (!validPriorities.has(String(t.priority || ''))) {
           issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'priority', message: `${t.id}: Priority "${t.priority || '(blank)'}" is outside configured values (${[...validPriorities].join(', ')})` });
         }
-        const spacedLabels = (t.labels || []).filter(l => /\s/.test(l));
-        if (spacedLabels.length > 0) {
+        const asciiOnly = !!config.labelAsciiOnly;
+        const badLabels = (t.labels || []).filter(l => hasInvalidLabelChars(l, asciiOnly));
+        if (badLabels.length > 0) {
           const rep = config.labelSpaceReplacement || '_';
           if (rep === 'none') {
-            issues.push({ severity: 'error', testIdx: idx, testId: t.id, kind: 'label-spaces', values: spacedLabels, message: `${t.id}: Label(s) contain spaces (forbidden in Jira): ${spacedLabels.join(', ')}` });
+            issues.push({ severity: 'error', testIdx: idx, testId: t.id, kind: 'label-spaces', values: badLabels, message: `${t.id}: Label(s) contain spaces or special characters (unsafe in Jira): ${badLabels.join(', ')}` });
           } else {
-            issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'label-spaces', values: spacedLabels, message: `${t.id}: Label(s) contain spaces — auto-exported with "${rep}" (${spacedLabels.map(l => sanitizeLabel(l, rep)).join(', ')})` });
+            issues.push({ severity: 'warn', testIdx: idx, testId: t.id, kind: 'label-spaces', values: badLabels, message: `${t.id}: Label(s) contain spaces/special chars — auto-sanitized on export (${badLabels.map(l => sanitizeLabel(l, rep, asciiOnly) || '(removed)').join(', ')})` });
           }
+        }
+        const listDelim = config.listDelimiter || ';';
+        const badComps = (t.components || []).filter(c => hasInvalidComponentChars(c, listDelim));
+        if (badComps.length > 0) {
+          issues.push({
+            severity: 'warn',
+            testIdx: idx,
+            testId: t.id,
+            kind: 'component-format',
+            values: badComps,
+            message: `${t.id}: Component(s) have extra whitespace, line breaks, or list delimiter "${listDelim}" — auto-cleaned on export (${badComps.map(c => sanitizeComponent(c, listDelim) || '(removed)').join(', ')})`
+          });
         }
         if (!config.allowCustomLabels) {
           const extraLabels = (t.labels || []).filter(l => !allowedLabels.has(l));
@@ -2413,6 +2484,7 @@
       csvDelimiter: ',',
       listDelimiter: ';',
       labelSpaceReplacement: '_',
+      labelAsciiOnly: false,
       includeUtf8Bom: true,
       autoWriteCsvToFolder: true,
       ai: {
@@ -4018,6 +4090,7 @@
       if (listDel !== null && listDel.trim()) d.listDelimiter = listDel.trim();
       const labelSpaceRep = getVal('cfg-label-space-rep');
       if (labelSpaceRep === '_' || labelSpaceRep === '-' || labelSpaceRep === 'none') d.labelSpaceReplacement = labelSpaceRep;
+      d.labelAsciiOnly = getChecked('cfg-label-ascii-only');
       const defPrio = getVal('cfg-default-prio');
       if (defPrio) d.defaultPriority = defPrio;
       const defUi = getVal('cfg-default-ui-mode');
@@ -4501,14 +4574,28 @@
     }
 
     function fixSpacedLabels(rep = '_') {
+      const asciiOnly = !!state.config.labelAsciiOnly;
       pushUndo();
       state.tests.forEach(t => {
-        t.labels = dedupeStrings((t.labels || []).map(l => sanitizeLabel(l, rep)));
+        t.labels = dedupeStrings((t.labels || []).map(l => sanitizeLabel(l, rep, asciiOnly)).filter(Boolean));
       });
-      state.config.labels = dedupeStrings((state.config.labels || []).map(l => sanitizeLabel(l, rep)));
+      state.config.labels = dedupeStrings((state.config.labels || []).map(l => sanitizeLabel(l, rep, asciiOnly)).filter(Boolean));
       persistConfig();
       persistSuite();
-      setStatus(`Replaced spaces in Labels with "${rep}"`, 'ok');
+      setStatus(`Sanitized Labels (spaces & special characters → "${rep}")`, 'ok');
+      render(false);
+    }
+
+    function fixComponentFormatting() {
+      const listDelim = state.config.listDelimiter || ';';
+      pushUndo();
+      state.tests.forEach(t => {
+        t.components = dedupeStrings((t.components || []).map(c => sanitizeComponent(c, listDelim)).filter(Boolean));
+      });
+      state.config.components = dedupeStrings((state.config.components || []).map(c => sanitizeComponent(c, listDelim)).filter(Boolean));
+      persistConfig();
+      persistSuite();
+      setStatus('Cleaned whitespace, line breaks, and delimiters in Components', 'ok');
       render(false);
     }
 
@@ -5064,12 +5151,16 @@
                     <input id="cfg-list-delim" type="text" value="${escHtml(d.listDelimiter)}" class="mono" style="width:70px;text-align:center" />
                   </label>
                   <label style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-                    <span>Replace spaces in Labels on export</span>
+                    <span>Sanitize Labels (spaces &amp; special chars)</span>
                     <select id="cfg-label-space-rep">
-                      <option value="_" ${(d.labelSpaceReplacement || '_') === '_' ? 'selected' : ''}>Underscore (_) — recommended</option>
-                      <option value="-" ${d.labelSpaceReplacement === '-' ? 'selected' : ''}>Hyphen (-)</option>
-                      <option value="none" ${d.labelSpaceReplacement === 'none' ? 'selected' : ''}>Do not auto-replace (strict)</option>
+                      <option value="_" ${(d.labelSpaceReplacement || '_') === '_' ? 'selected' : ''}>Replace with Underscore (_) — recommended</option>
+                      <option value="-" ${d.labelSpaceReplacement === '-' ? 'selected' : ''}>Replace with Hyphen (-)</option>
+                      <option value="none" ${d.labelSpaceReplacement === 'none' ? 'selected' : ''}>Do not auto-sanitize (strict)</option>
                     </select>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                    <input id="cfg-label-ascii-only" type="checkbox" ${d.labelAsciiOnly ? 'checked' : ''} />
+                    <span>Also transliterate umlauts/accents in Labels (ä→ae, ß→ss, é→e)</span>
                   </label>
                   <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
                     <input id="cfg-utf8-bom" type="checkbox" ${d.includeUtf8Bom ? 'checked' : ''} />
@@ -5392,6 +5483,7 @@
       const warns = issues.filter(i => i.severity === 'warn');
       const hasTagIssues = issues.some(i => i.kind === 'labels' || i.kind === 'components');
       const hasSpacedLabels = issues.some(i => i.kind === 'label-spaces');
+      const hasBadComponents = issues.some(i => i.kind === 'component-format');
       const csv = buildXrayCsv(state.tests, state.config);
       const prioMapSummary = (state.config.priorities || [])
         .map(p => `${p.value}→${p.csvValue || p.value}`)
@@ -5409,11 +5501,14 @@
                 ? `<div class="banner ok"><span><strong>All checks passed.</strong> Ready for Xray Cloud Test Case Importer (${escHtml(state.config.includeUtf8Bom ? 'UTF-8 BOM' : 'UTF-8')}, delimiter "${escHtml(state.config.csvDelimiter)}", list delimiter "${escHtml(state.config.listDelimiter)}", priority CSV: ${escHtml(prioMapSummary)}).</span><button type="button" onclick="openConfigModal()">Edit Mapping</button></div>`
                 : `<div class="banner ${errors.length ? 'err' : 'warn'}">
                      <span><strong>${errors.length} error(s), ${warns.length} warning(s)</strong> found across your test cases.</span>
-                     ${(hasSpacedLabels || hasTagIssues) ? `
+                     ${(hasSpacedLabels || hasBadComponents || hasTagIssues) ? `
                        <div style="display:flex;gap:6px;flex-wrap:wrap">
                          ${hasSpacedLabels ? `
-                           <button type="button" onclick="fixSpacedLabels('_')">Replace Spaces → _</button>
-                           <button type="button" onclick="fixSpacedLabels('-')">Replace Spaces → -</button>
+                           <button type="button" onclick="fixSpacedLabels('_')">Sanitize Labels → _</button>
+                           <button type="button" onclick="fixSpacedLabels('-')">Sanitize Labels → -</button>
+                         ` : ''}
+                         ${hasBadComponents ? `
+                           <button type="button" onclick="fixComponentFormatting()">Clean Components</button>
                          ` : ''}
                          ${hasTagIssues ? `
                            <button type="button" onclick="fixUnknownTagsToConfig()">Add Unknown Tags to Central Config</button>
