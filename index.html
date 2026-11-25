@@ -4599,6 +4599,20 @@
       render(false);
     }
 
+    function updatePriorityCsvValue(idx, rawVal) {
+      const p = (state.config.priorities || [])[idx];
+      if (!p) return;
+      const trimmed = String(rawVal ?? '').trim();
+      p.csvValue = trimmed || p.value;
+      persistConfig(true);
+      if (state.dirHandle) scheduleFolderSave(state.activeProjectIdx);
+      const previewEl = document.getElementById('export-csv-preview');
+      if (previewEl) {
+        previewEl.textContent = buildXrayCsv(state.tests, state.config);
+      }
+      setStatus(`Priority ${p.value} CSV value set to "${p.csvValue}"`, 'ok');
+    }
+
     /* =========================================================================
        RENDERING
        ========================================================================= */
@@ -5498,7 +5512,7 @@
             </div>
             <div class="modal-body">
               ${issues.length === 0
-                ? `<div class="banner ok"><span><strong>All checks passed.</strong> Ready for Xray Cloud Test Case Importer (${escHtml(state.config.includeUtf8Bom ? 'UTF-8 BOM' : 'UTF-8')}, delimiter "${escHtml(state.config.csvDelimiter)}", list delimiter "${escHtml(state.config.listDelimiter)}", priority CSV: ${escHtml(prioMapSummary)}).</span><button type="button" onclick="openConfigModal()">Edit Mapping</button></div>`
+                ? `<div class="banner ok"><span><strong>All checks passed.</strong> Ready for Xray Cloud Test Case Importer (${escHtml(state.config.includeUtf8Bom ? 'UTF-8 BOM' : 'UTF-8')}, delimiter "${escHtml(state.config.csvDelimiter)}", list delimiter "${escHtml(state.config.listDelimiter)}").</span></div>`
                 : `<div class="banner ${errors.length ? 'err' : 'warn'}">
                      <span><strong>${errors.length} error(s), ${warns.length} warning(s)</strong> found across your test cases.</span>
                      ${(hasSpacedLabels || hasBadComponents || hasTagIssues) ? `
@@ -5519,6 +5533,29 @@
                    </div>`
               }
 
+              <div class="section-box" style="padding:8px 10px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+                  <span style="font-weight:700;font-size:12px">Priority → Jira CSV Mapping</span>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    ${(state.config.priorities || []).map((p, idx) => `
+                      <label style="display:flex;align-items:center;gap:4px">
+                        <span class="prio-badge ${prioClass(p.value)}">${escHtml(p.value)}</span>
+                        <span class="muted">→</span>
+                        <input
+                          type="text"
+                          class="mono"
+                          value="${escHtml(p.csvValue || p.value)}"
+                          placeholder="Prio ${escHtml(p.value)}"
+                          style="width:96px;padding:3px 6px"
+                          oninput="updatePriorityCsvValue(${idx}, this.value)"
+                          title="Exact Jira Priority name exported to CSV for Priority ${escHtml(p.value)}"
+                        />
+                      </label>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+
               ${issues.length > 0 ? `
                 <div style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto">
                   ${issues.map(iss => `
@@ -5530,7 +5567,7 @@
                 </div>
               ` : ''}
 
-              <pre class="code-box">${escHtml(csv)}</pre>
+              <pre id="export-csv-preview" class="code-box">${escHtml(csv)}</pre>
             </div>
             <div class="modal-foot">
               <div class="hints">
